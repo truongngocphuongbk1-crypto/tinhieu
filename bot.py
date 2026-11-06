@@ -44,6 +44,28 @@ def http_json(url):
         return json.loads(r.read().decode("utf-8"))
 
 
+def them_nen_hom_nay(d, ma, loai):
+    """DNSE chỉ tạo nến ngày sau khi hết phiên. Trong phiên, gộp nến 15 phút của hôm nay
+    thành 1 nến ngày tạm thời rồi gắn vào cuối, để giá / T+ / tín hiệu cập nhật theo thời gian thực."""
+    hom_nay = datetime.now(VN).strftime("%Y-%m-%d")
+    if d["t"] and d["t"][-1] >= hom_nay:
+        return
+    now = int(time.time())
+    url = (f"https://services.entrade.com.vn/chart-api/v2/ohlcs/{loai}?symbol={ma}"
+           f"&resolution=15&from={now - 86400}&to={now + 900}")
+    j = http_json(url)
+    ds = [i for i, x in enumerate(j.get("t") or [])
+          if datetime.fromtimestamp(x, VN).strftime("%Y-%m-%d") == hom_nay]
+    if not ds:
+        return
+    d["t"].append(hom_nay)
+    d["o"].append(j["o"][ds[0]])
+    d["h"].append(max(j["h"][i] for i in ds))
+    d["l"].append(min(j["l"][i] for i in ds))
+    d["c"].append(j["c"][ds[-1]])
+    d["v"].append(sum(j["v"][i] for i in ds))
+
+
 def nguon_dnse(ma, la_chi_so=False):
     now = int(time.time())
     loai = "index" if la_chi_so else "stock"
@@ -53,7 +75,12 @@ def nguon_dnse(ma, la_chi_so=False):
     if not j.get("t"):
         raise ValueError("rỗng")
     t = [datetime.fromtimestamp(x, VN).strftime("%Y-%m-%d") for x in j["t"]]
-    return dict(t=t, o=j["o"], h=j["h"], l=j["l"], c=j["c"], v=j["v"])
+    d = dict(t=t, o=list(j["o"]), h=list(j["h"]), l=list(j["l"]), c=list(j["c"]), v=list(j["v"]))
+    try:
+        them_nen_hom_nay(d, ma, loai)
+    except Exception as e:
+        print(f"{ma}: chưa lấy được nến trong phiên ({e})")
+    return d
 
 
 def nguon_tcbs(ma, la_chi_so=False):
