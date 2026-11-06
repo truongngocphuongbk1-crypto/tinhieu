@@ -346,6 +346,13 @@ def diem_xep_hang(vals):
     return out
 
 
+def trung_vi(a):
+    """Trung vị: không bị 1 mã biến động bất thường (vd ngày GDKHQ) kéo lệch cả ngành."""
+    a = sorted(a)
+    k = len(a) // 2
+    return a[k] if len(a) % 2 else (a[k - 1] + a[k]) / 2
+
+
 def xep_nganh(rows):
     """Gom mã theo ngành, chấm điểm sức mạnh 20 phiên: mã so với ngành, ngành so với ngành."""
     nhom = {}
@@ -356,8 +363,8 @@ def xep_nganh(rows):
         for x, dd in zip(ds, diem_xep_hang([x["r"] for x in ds])):
             x["sm"] = dd
         ds.sort(key=lambda x: (-x["sm"], -x["r"]))
-        kq.append(dict(ten=ten, r=round(sum(x["r"] for x in ds) / len(ds), 2),
-                       c=round(sum(x["c"] for x in ds) / len(ds), 2),
+        kq.append(dict(ten=ten, r=round(trung_vi([x["r"] for x in ds]), 2),
+                       c=round(trung_vi([x["c"] for x in ds]), 2),
                        xanh=sum(1 for x in ds if x["s"] > 0), ma=ds))
     for x, dd in zip(kq, diem_xep_hang([x["r"] for x in kq])):
         x["sm"] = dd
