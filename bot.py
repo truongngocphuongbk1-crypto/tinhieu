@@ -66,6 +66,65 @@ def them_nen_hom_nay(d, ma, loai):
     d["v"].append(sum(j["v"][i] for i in ds))
 
 
+CACHE_DIR = os.path.join(ROOT, "cache")
+CACHE_FILE = os.path.join(CACHE_DIR, "nen_ngay.json")
+CACHE_DA_DOI = os.path.join(CACHE_DIR, "da_doi.txt")
+
+
+def doc_cache(hom_nay):
+    """Đọc nến ngày đã lưu (bộ nhớ đệm). Chỉ dùng nếu được lưu trong hôm nay.
+    Nhờ vậy mỗi 5 phút bot chỉ phải tải nến 15 phút của hôm nay -> nhanh, không bị nguồn chặn."""
+    try:
+        os.remove(CACHE_DA_DOI)
+    except Exception:
+        pass
+    try:
+        c = json.load(open(CACHE_FILE, encoding="utf-8"))
+        if c.get("ngay") == hom_nay:
+            print(f"Dùng nến ngày đã lưu của {len(c.get('data', {}))} mã")
+            return c.get("data", {})
+    except Exception:
+        pass
+    print("Chưa có nến ngày đã lưu cho hôm nay -> tải mới")
+    return {}
+
+
+def ghi_cache(hom_nay, cache, moi):
+    if not moi:
+        return
+    cache.update(moi)
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    json.dump({"ngay": hom_nay, "data": cache}, open(CACHE_FILE, "w", encoding="utf-8"),
+              separators=(",", ":"))
+    open(CACHE_DA_DOI, "w").write(str(len(moi)))
+    print(f"Đã lưu thêm nến ngày của {len(moi)} mã")
+
+
+def lay_gia_nhanh(ma, la_chi_so, cache, moi):
+    """Nến ngày: lấy từ bộ nhớ đệm nếu có, không thì tải. Sau đó gắn nến trong phiên hôm nay."""
+    khoa = ("CS:" if la_chi_so else "") + ma
+    goc = cache.get(khoa)
+    nguon = "DNSE (đã lưu)"
+    if goc is None:
+        d = lay_gia(ma, la_chi_so)
+        nguon = d.get("nguon", "DNSE")
+        goc = {k: list(d[k]) for k in "tohlcv"}
+        if len(goc["c"]) > 30:
+            moi[khoa] = goc
+    d = {k: list(goc[k]) for k in "tohlcv"}
+    d["nguon"] = nguon
+    loai = "index" if la_chi_so else "stock"
+    for lan in range(2):
+        try:
+            them_nen_hom_nay(d, ma, loai)
+            break
+        except Exception as e:
+            if lan == 1:
+                print(f"{ma}: chưa lấy được nến trong phiên ({e})")
+            time.sleep(1)
+    return d
+
+
 def nguon_dnse(ma, la_chi_so=False):
     now = int(time.time())
     loai = "index" if la_chi_so else "stock"
@@ -75,12 +134,7 @@ def nguon_dnse(ma, la_chi_so=False):
     if not j.get("t"):
         raise ValueError("rỗng")
     t = [datetime.fromtimestamp(x, VN).strftime("%Y-%m-%d") for x in j["t"]]
-    d = dict(t=t, o=list(j["o"]), h=list(j["h"]), l=list(j["l"]), c=list(j["c"]), v=list(j["v"]))
-    try:
-        them_nen_hom_nay(d, ma, loai)
-    except Exception as e:
-        print(f"{ma}: chưa lấy được nến trong phiên ({e})")
-    return d
+    return dict(t=t, o=list(j["o"]), h=list(j["h"]), l=list(j["l"]), c=list(j["c"]), v=list(j["v"]))
 
 
 def nguon_tcbs(ma, la_chi_so=False):
@@ -268,9 +322,13 @@ def main():
     now = datetime.now(VN)
     hom_nay = now.strftime("%Y-%m-%d")
 
+    cache = doc_cache(hom_nay)   # nến ngày đã lưu trong hôm nay (nếu có)
+    moi = {}
     with ThreadPoolExecutor(8) as ex:
-        kq = dict(zip(ds, ex.map(lambda m: _safe(lay_gia, m), ds)))
-        kq_idx = dict(zip(CHI_SO, ex.map(lambda m: _safe(lay_gia, m, True), CHI_SO)))
+        kq = dict(zip(ds, ex.map(lambda m: _safe(lay_gia_nhanh, m, False, cache, moi), ds)))
+        kq_idx = dict(zip(CHI_SO, ex.map(lambda m: _safe(lay_gia_nhanh, m, True, cache, moi), CHI_SO)))
+    if not test:
+        ghi_cache(hom_nay, cache, moi)
 
     co = {m: d for m, d in kq.items() if isinstance(d, dict) and len(d["c"]) > 30}
     thieu = [m for m in ds if m not in co]
