@@ -38,8 +38,13 @@
 "2026-11-06|KDH|supertrend|b",
 "2026-11-06|NTL|ema|b",
 "2026-11-06|PDR|ema|b",
+"2026-11-06|PLC|ema|s",
+"2026-11-06|STB|ema|b",
 "2026-11-06|TLH|ema|s",
 "2026-11-06|TVN|supertrend|s",
+"2026-11-06|VGL|ema|s",
+"2026-11-06|VGL|supertrend|s",
+"2026-11-06|VGL|vuot_khang_cu|s",
 "2026-11-06|VND|ema|b"
 ]
 }
