@@ -29,12 +29,16 @@
 "2026-11-05|VND|vuot_khang_cu|b",
 "2026-11-06|BAF|vuot_khang_cu|s",
 "2026-11-06|BCC|ema|s",
+"2026-11-06|DCL|supertrend|s",
 "2026-11-06|EVF|ema|s",
 "2026-11-06|HDG|ema|b",
 "2026-11-06|HDG|supertrend|b",
 "2026-11-06|HDG|vuot_khang_cu|b",
 "2026-11-06|KDH|ema|b",
 "2026-11-06|KDH|supertrend|b",
-"2026-11-06|PDR|ema|b"
+"2026-11-06|NTL|ema|b",
+"2026-11-06|PDR|ema|b",
+"2026-11-06|TLH|ema|s",
+"2026-11-06|TVN|supertrend|s"
 ]
 }
