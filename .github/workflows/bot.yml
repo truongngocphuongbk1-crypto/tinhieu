@@ -3,16 +3,18 @@ name: Bot tin hieu co phieu
 on:
   schedule:
     # Giờ ghi theo UTC. Giờ Việt Nam = UTC + 7
-    # Mỗi 5 phút từ 9h00 đến 14h55 (giờ VN), thứ 2 -> thứ 6
+    # Lịch của GitHub hay bị trễ, nên chỉ dùng để "mồi" bot chạy lần đầu trong ngày.
+    # Sau đó bot tự hẹn lần chạy tiếp theo (xem bước cuối cùng bên dưới).
     - cron: '*/5 2-7 * * 1-5'
     # Chạy thêm lúc 15h05 (giờ VN) để chốt giá đóng cửa + gửi tổng kết phiên
     - cron: '5 8 * * 1-5'
-  workflow_dispatch:   # cho phép bấm nút "Run workflow" để chạy tay
+  workflow_dispatch: # cho phép bấm nút "Run workflow" để chạy tay
 
 permissions:
   contents: write
   pages: write
   id-token: write
+  actions: write # cho phép bot tự gọi lần chạy tiếp theo
 
 concurrency:
   group: signal-bot
@@ -21,7 +23,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -60,3 +62,18 @@ jobs:
       - name: Dang trang web
         id: deploy
         uses: actions/deploy-pages@v4
+
+      - name: Hen lan chay tiep theo (khoang 5 phut sau)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 200
+          GIO=$(TZ=Asia/Ho_Chi_Minh date +%H%M)
+          THU=$(TZ=Asia/Ho_Chi_Minh date +%u)
+          if [ "$THU" -le 5 ] && [ "$GIO" -ge 0855 ] && [ "$GIO" -lt 1505 ]; then
+            gh workflow run bot.yml --ref main --repo "$GITHUB_REPOSITORY"
+            echo "Da hen lan chay tiep theo"
+          else
+            echo "Ngoai gio giao dich - khong hen lan sau"
+          fi
