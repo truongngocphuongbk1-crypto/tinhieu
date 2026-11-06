@@ -3,9 +3,9 @@ name: Bot tin hieu co phieu
 on:
   schedule:
     # Giờ ghi theo UTC. Giờ Việt Nam = UTC + 7
-    # Lịch của GitHub hay bị trễ, nên chỉ dùng để "mồi" bot chạy lần đầu trong ngày.
+    # Lịch của GitHub hay bị trễ, nên chỉ dùng để "mồi" bot chạy lần đầu trong ngày (từ 8h00 giờ VN).
     # Sau đó bot tự hẹn lần chạy tiếp theo (xem bước cuối cùng bên dưới).
-    - cron: '*/5 2-7 * * 1-5'
+    - cron: '*/5 1-7 * * 1-5'
     # Chạy thêm lúc 15h05 (giờ VN) để chốt giá đóng cửa + gửi tổng kết phiên
     - cron: '5 8 * * 1-5'
   workflow_dispatch: # cho phép bấm nút "Run workflow" để chạy tay
@@ -14,7 +14,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
-  actions: write # cho phép bot tự gọi lần chạy tiếp theo
+  actions: write # cho phép bot tự gọi lần chạy tiếp theo + lưu bộ nhớ đệm
 
 concurrency:
   group: signal-bot
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -36,12 +36,26 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Lay nen ngay da luu (bo nho dem)
+        uses: actions/cache/restore@v4
+        with:
+          path: cache
+          key: nen-ngay-${{ github.run_id }}
+          restore-keys: nen-ngay-
+
       - name: Chay bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_LINK: ${{ vars.TELEGRAM_LINK }}
         run: python bot.py
+
+      - name: Luu nen ngay (bo nho dem)
+        if: ${{ hashFiles('cache/da_doi.txt') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: cache
+          key: nen-ngay-${{ github.run_id }}
 
       - name: Luu danh sach tin da gui (tranh gui trung)
         run: |
@@ -71,7 +85,7 @@ jobs:
           sleep 140
           GIO=$(TZ=Asia/Ho_Chi_Minh date +%H%M)
           THU=$(TZ=Asia/Ho_Chi_Minh date +%u)
-          if [ "$THU" -le 5 ] && [ "$GIO" -ge 0855 ] && [ "$GIO" -lt 1505 ]; then
+          if [ "$THU" -le 5 ] && [ "$GIO" -ge 0800 ] && [ "$GIO" -lt 1505 ]; then
             gh workflow run bot.yml --ref main --repo "$GITHUB_REPOSITORY"
             echo "Da hen lan chay tiep theo"
           else
