@@ -28,6 +28,30 @@ TARGET = {"supertrend": (1.085, 1.135), "ema": (1.085, 1.135), "vuot_khang_cu": 
 CHO_MUA_CACH = 0.03                 # giá cách điểm kích hoạt <= 3% thì đưa vào "Chờ mua"
 SO_NEN_LUU_DO_THI = 150             # số phiên lưu cho đồ thị trên web
 GIO_TONG_KET = 15                   # sau 15h (giờ VN) gửi 1 tin tổng kết phiên
+
+# Phân ngành (mỗi dòng: Tên ngành: các mã). Mã không có ở đây sẽ vào nhóm "Khác".
+NGANH = """
+Ngân hàng: ABB ACB BID BVB CTG EIB HDB KLB LPB MBB MSB NAB NVB OCB SHB SSB STB TCB TPB VCB VIB VPB
+Chứng khoán: AGR BSI BVS CTS FTS LPS ORS SBS SHS SSI TCX TVS VCI VCK VDS VFS VIX VND VPX
+BĐS dân cư: CEO DIG DXG DXS EVG HDC KDH KHG KOS L14 LDG NLG NTL NVL PDR TCH VHM VIC VPI VPL VRE
+BĐS KCN: BCM GVR IDC KBC SIP SZC VGC
+Xây dựng & Đầu tư công: CII CTD DPG FCN G36 HBC HHV HUT LCG VSI
+Vật liệu XD & Nhựa: AAA APH BCC BMP HCD HII HT1 NHH NTP PGN PLP
+Thép: HPG HSG NKG SMC TLH TVN VGL VGS VIS
+Dầu khí: BSR CNG GAS GSP OIL PLC PLX PVB PVC PVD PVP PVS PVT
+Điện & Năng lượng: GEE GEG GEL GEX HDG KHP PC1 POW PPC QTP REE SJD TV2 VPD VTV
+Hóa chất & Phân bón: BFC CSV DCM DDV DGC DPM LAS
+Cao su: CSM DPR DRC DRI PHR
+Thủy sản: ACL ANV ASM CMX FMC IDI MPC VHC
+Dệt may: AAT ADS GIL MSH TCM TNG VGT
+Bán lẻ & Phân phối: DGW FRT MWG PET PNJ VPG
+Thực phẩm & Nông nghiệp: BAF HAG HNG MCH MML MSN PAN SAB TSC VLC VNM
+Cảng, Vận tải & Hàng không: DXP GMD HAH HHS MVN PHP SGP VIP VJC VOS VSC VST VTO VTP
+Công nghệ & Viễn thông: CMG CTR FOX FPT VGI
+Bảo hiểm & Tài chính: BMI BVH EVF MIG
+Khoáng sản & Than: BKC BMC CST KCB KSV MSR NBC THT TVD
+"""
+MA_NGANH = {m: dong.split(":")[0].strip() for dong in NGANH.strip().splitlines() for m in dong.split(":")[1].split()}
 # ========================================================
 
 VN = timezone(timedelta(hours=7))
@@ -254,7 +278,7 @@ def tinh_chien_luoc(d):
             g["vuot_khang_cu"]["b"].append(i); giu = True
         elif giu and ma10[i] is not None and c[i] < ma10[i]:
             g["vuot_khang_cu"]["s"].append(i); giu = False
-    return dict(st=st, u=up, e9=e9, e21=e21, rs=rs, g=g)
+    return dict(st=st, u=up, e9=e9, e21=e21, rs=rs, ma10=ma10, g=g)
 
 
 def trang_thai(d, ind, key):
@@ -282,6 +306,63 @@ def trang_thai(d, ind, key):
     if trig and c[-1] < trig <= c[-1] * (1 + CHO_MUA_CACH):
         return dict(rb="CHỜ MUA", bn=trig)
     return None
+
+
+# ---------------- Bảng theo ngành ----------------
+def gia_cat_ema(e9, e21):
+    """Giá đóng cửa hôm nay để EMA9 cắt EMA21 (điểm SL khi đang giữ / điểm vào lại khi đứng ngoài)."""
+    if len(e9) < 2 or e9[-2] is None or e21[-2] is None:
+        return None
+    a9, a21 = 2 / 10, 2 / 22
+    p = ((1 - a21) * e21[-2] - (1 - a9) * e9[-2]) / (a9 - a21)
+    return p if p > 0 else None
+
+
+def trang_thai_nganh(d, ind, key):
+    """Xanh (đang giữ từ lúc MUA) / hồng (đứng ngoài từ lúc BÁN), lãi-lỗ, T+, điểm SL hoặc vào lại."""
+    c, n = d["c"], len(d["c"])
+    ev = sorted([(i, 1) for i in ind["g"][key]["b"]] + [(i, -1) for i in ind["g"][key]["s"]])
+    if not ev:
+        return None
+    i, s = ev[-1]
+    if key == "supertrend":
+        muc = ind["st"][-1]
+    elif key == "ema":
+        muc = gia_cat_ema(ind["e9"], ind["e21"])
+    else:
+        muc = ind["ma10"][-1] if s > 0 else ind["rs"][-1]
+    return dict(s=s, pl=round((c[-1] / c[i] - 1) * 100, 2) if c[i] else 0.0, t=n - 1 - i,
+                d=fmt_ngay(d["t"][i]), muc=None if muc is None else round(muc, 2), hn=1 if i == n - 1 else 0)
+
+
+def diem_xep_hang(vals):
+    """Đổi danh sách số thành điểm 0-100 theo thứ hạng (cao nhất = 100, thấp nhất = 0)."""
+    n = len(vals)
+    if n == 1:
+        return [50]
+    out = [0] * n
+    for r, i in enumerate(sorted(range(n), key=lambda i: vals[i])):
+        out[i] = round(100 * r / (n - 1))
+    return out
+
+
+def xep_nganh(rows):
+    """Gom mã theo ngành, chấm điểm sức mạnh 20 phiên: mã so với ngành, ngành so với ngành."""
+    nhom = {}
+    for m, r in rows.items():
+        nhom.setdefault(MA_NGANH.get(m, "Khác"), []).append(dict(r, m=m))
+    kq = []
+    for ten, ds in nhom.items():
+        for x, dd in zip(ds, diem_xep_hang([x["r"] for x in ds])):
+            x["sm"] = dd
+        ds.sort(key=lambda x: (-x["sm"], -x["r"]))
+        kq.append(dict(ten=ten, r=round(sum(x["r"] for x in ds) / len(ds), 2),
+                       c=round(sum(x["c"] for x in ds) / len(ds), 2),
+                       xanh=sum(1 for x in ds if x["s"] > 0), ma=ds))
+    for x, dd in zip(kq, diem_xep_hang([x["r"] for x in kq])):
+        x["sm"] = dd
+    kq.sort(key=lambda x: -x["r"])
+    return kq
 
 
 def fmt_ngay(s):
@@ -347,12 +428,19 @@ def main():
     da_gui = set(state.get("da_gui", []))
 
     tabs = {CHIEN_LUOC[k]: {} for k in CHIEN_LUOC}
+    nganh_raw = {CHIEN_LUOC[k]: {} for k in CHIEN_LUOC}
     tin_moi = []
     os.makedirs(os.path.join(SITE, "h"), exist_ok=True)
     for m, d in co.items():
         ind = tinh_chien_luoc(d)
         c = d["c"]
         p, chg = c[-1], (c[-1] / c[-2] - 1) * 100 if c[-2] else 0
+        r20 = (c[-1] / c[-21] - 1) * 100 if len(c) > 21 and c[-21] else 0.0   # sức mạnh 20 phiên
+        for key, ten in CHIEN_LUOC.items():
+            s2 = trang_thai_nganh(d, ind, key)
+            if s2:
+                s2.update(p=round(p, 2), c=round(chg, 2), r=round(r20, 2))
+                nganh_raw[ten][m] = s2
         for key, ten in CHIEN_LUOC.items():
             s = trang_thai(d, ind, key)
             if s:
@@ -385,7 +473,7 @@ def main():
         if isinstance(d, dict) and len(d["c"]) > 1:
             idx[k] = [round(d["c"][-1], 2), round((d["c"][-1] / d["c"][-2] - 1) * 100, 2)]
 
-    data = dict(asof=now.strftime("%H:%M %d/%m/%Y"), idx=idx, tabs=tabs, symbols=ds, missing=thieu,
+    data = dict(asof=now.strftime("%H:%M %d/%m/%Y"), idx=idx, tabs=tabs, nganh={t: xep_nganh(r) for t, r in nganh_raw.items()}, symbols=ds, missing=thieu,
                 telegram=os.environ.get("TELEGRAM_LINK", ""))
     json.dump(data, open(os.path.join(SITE, "data.json"), "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
