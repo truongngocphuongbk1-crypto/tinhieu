@@ -114,14 +114,14 @@ def lay_gia_nhanh(ma, la_chi_so, cache, moi):
     d = {k: list(goc[k]) for k in "tohlcv"}
     d["nguon"] = nguon
     loai = "index" if la_chi_so else "stock"
-    for lan in range(2):
+    for lan in range(3):
         try:
             them_nen_hom_nay(d, ma, loai)
             break
         except Exception as e:
-            if lan == 1:
+            if lan == 2:
                 print(f"{ma}: chưa lấy được nến trong phiên ({e})")
-            time.sleep(1)
+            time.sleep(2)
     return d
 
 
@@ -325,8 +325,8 @@ def main():
     cache = doc_cache(hom_nay)   # nến ngày đã lưu trong hôm nay (nếu có)
     moi = {}
     with ThreadPoolExecutor(8) as ex:
+        kq_idx = dict(zip(CHI_SO, ex.map(lambda m: _safe(lay_gia_nhanh, m, True, cache, moi), CHI_SO)))  # chỉ số lấy trước
         kq = dict(zip(ds, ex.map(lambda m: _safe(lay_gia_nhanh, m, False, cache, moi), ds)))
-        kq_idx = dict(zip(CHI_SO, ex.map(lambda m: _safe(lay_gia_nhanh, m, True, cache, moi), CHI_SO)))
     if not test:
         ghi_cache(hom_nay, cache, moi)
 
