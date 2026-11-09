@@ -198,7 +198,7 @@ $('ngb').innerHTML=h||`<tr><td colspan="8" class="empty">${G.length?'Không có 
 }
 function side(){
  const cur=D.tabs[tab]||{};
- const w=Object.keys(cur).filter(m=>/CHỜ/i.test(cur[m].rb)).sort();
+ const w=Object.keys(cur).filter(m=>/^CHỜ MUA$/i.test(cur[m].rb)).sort();
  $('wc').textContent=w.length;
  $('wb').innerHTML=w.map(m=>{const r=cur[m];return`<tr><td class="tkc" data-m="${m}" tabindex="0">${m}</td><td>${r.bn==null?'–':'&gt; '+nf(r.bn)}</td><td class="${cls(r.c||0)}">${r.p==null?'–':nf(r.p)}</td><td class="${cls(r.c||0)}">${r.c==null?'–':arrow(r.c)+nf(Math.abs(r.c))+'%'}</td><td>${r.v==null?'–':nf(r.v,1)}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty">Chưa có mã chờ mua.</td></tr>';
  // Danh sách CHỜ BÁN (chỉ tab Bắt Đáy)
