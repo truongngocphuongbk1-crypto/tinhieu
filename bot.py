@@ -111,10 +111,26 @@ def nen_15p_hom_nay(ma, loai, hom_nay):
     return j, ds
 
 
+import threading
+TAI_1H_MOI_LUOT = 40          # mỗi lượt chạy chỉ tải lịch sử nến 1 giờ cho tối đa bấy nhiêu mã
+TAI_1H_TOI_DA_GIAY = 180      # ... và không quá bấy nhiêu giây (các lượt sau tải tiếp, đã tải thì lưu đệm)
+_khoa_1h = threading.Lock()
+_dem_1h = [0, time.time()]
+
+
+def duoc_tai_1h():
+    """Giới hạn số mã tải lịch sử 1 giờ trong 1 lượt để bot không chạy quá lâu."""
+    with _khoa_1h:
+        if _dem_1h[0] >= TAI_1H_MOI_LUOT or time.time() - _dem_1h[1] > TAI_1H_TOI_DA_GIAY:
+            return False
+        _dem_1h[0] += 1
+        return True
+
+
 def lich_su_1h(ma, hom_nay):
-    """Nến 1 giờ của khoảng 100 ngày gần nhất (không gồm hôm nay), gộp từ nến 15 phút."""
+    """Nến 1 giờ của khoảng 80 ngày gần nhất (không gồm hôm nay), gộp từ nến 15 phút."""
     now = int(time.time())
-    j = tai_15p(ma, "stock", now - 86400 * 100, now + 900)
+    j = tai_15p(ma, "stock", now - 86400 * 80, now + 900)
     chon = [i for i, x in enumerate(j.get("t") or [])
             if datetime.fromtimestamp(x, VN).strftime("%Y-%m-%d") < hom_nay]
     return gom_1h(j, chon)
@@ -188,17 +204,13 @@ def lay_gia_nhanh(ma, la_chi_so, cache, moi):
     gio = None
     if not la_chi_so:
         gio = cache.get("H:" + ma)
-        if gio is None:
-            for lan in range(2):
-                try:
-                    gio = lich_su_1h(ma, hom_nay)
-                    if len(gio["c"]) > 60:
-                        moi["H:" + ma] = gio
-                    break
-                except Exception as e:
-                    if lan == 1:
-                        print(f"{ma}: chưa lấy được nến 1 giờ ({e})")
-                    time.sleep(1)
+        if gio is None and duoc_tai_1h():
+            try:
+                gio = lich_su_1h(ma, hom_nay)
+                if len(gio["c"]) > 60:
+                    moi["H:" + ma] = gio
+            except Exception as e:
+                print(f"{ma}: chưa lấy được nến 1 giờ ({e})")
     can_15p = not la_chi_so or not (d["t"] and d["t"][-1] >= hom_nay)
     j, ds = None, []
     if can_15p:
