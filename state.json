@@ -133,10 +133,12 @@
 "2026-11-11 09:00|VHC|bat_day_1h|s",
 "2026-11-11|BAF|vuot_khang_cu|s",
 "2026-11-11|HDC|bat_day|s",
+"2026-11-11|NBC|vuot_khang_cu|b",
 "2026-11-11|NTL|bat_day|s",
 "2026-11-11|PLC|ema|b",
 "2026-11-11|POW|ema|b",
 "2026-11-11|TCX|ema|b",
+"2026-11-11|THT|supertrend|b",
 "2026-11-11|VRE|ema|b"
 ]
 }
