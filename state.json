@@ -179,9 +179,11 @@
 "2026-11-12 11:00|MCH|bat_day_1h|b",
 "2026-11-12 13:00|CST|bat_day_1h|s",
 "2026-11-12 13:00|DRI|bat_day_1h|s",
+"2026-11-12 13:00|GEE|bat_day_1h|s",
 "2026-11-12 13:00|HHV|bat_day_1h|s",
 "2026-11-12 13:00|NTL|bat_day_1h|s",
 "2026-11-12 13:00|PHP|bat_day_1h|s",
+"2026-11-12 13:00|PVD|bat_day_1h|b",
 "2026-11-12 13:00|THT|bat_day_1h|s",
 "2026-11-12|BAF|vuot_khang_cu|s",
 "2026-11-12|CII|vuot_khang_cu|b",
@@ -198,6 +200,7 @@
 "2026-11-12|PDR|supertrend|b",
 "2026-11-12|PLC|ema|s",
 "2026-11-12|REE|bat_day|s",
+"2026-11-12|TV2|vuot_khang_cu|b",
 "2026-11-12|VCK|vuot_khang_cu|s",
 "2026-11-12|VSC|ema|b"
 ]
