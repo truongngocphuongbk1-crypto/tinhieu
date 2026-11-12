@@ -108,7 +108,8 @@ td small{color:var(--mut)}
   <h2 style="margin-bottom:6px">BẢN ĐỒ SỨC MẠNH DÒNG TIỀN</h2>
   <div class="dtl"><span style="--c:var(--up)">Mã tăng giá tích cực</span><span style="--c:var(--dn)">Mã giảm tiêu cực</span><span style="--c:#a855f7">Mã dòng tiền vào mạnh</span></div>
   <div class="dtc">Số mã trên biểu đồ <select id="dtn"><option>30</option><option selected>45</option><option>60</option><option>90</option></select>
-    Ngưỡng dòng tiền mạnh <input id="dthr" type="number" value="1.5" step="0.1" min="1" style="width:64px"> lần</div>
+    Ngưỡng dòng tiền mạnh <input id="dthr" type="number" value="1.5" step="0.1" min="1" style="width:64px"> lần
+    GTGD tối thiểu <input id="dtmin" type="number" value="5" step="1" min="0" style="width:56px"> tỷ</div>
   <canvas id="dcv" role="img" aria-label="Biểu đồ tròn sức mạnh dòng tiền"></canvas>
   <p class="dtnote">Độ dài thanh = <b>Điểm sức mạnh</b> = KL khớp so với KL TB 20 phiên (đã quy đổi theo thời gian phiên) × mức mua/bán chủ động.<br>Bấm vào thanh hoặc mã để xem đồ thị.</p>
   <div class="tw" style="max-height:520px"><table style="min-width:620px"><thead><tr><th>Mã CK</th><th>Giá</th><th>+/-</th><th>KL so với TB</th><th>Mua - Bán chủ động</th><th>GTGD (tỷ)</th><th>Điểm</th><th class="ctr">Nhóm</th></tr></thead><tbody id="dtb"></tbody></table></div>
@@ -217,16 +218,16 @@ $('ngb').innerHTML=h||`<tr><td colspan="8" class="empty">${G.length?'Không có 
 // ================= DÒNG TIỀN =================
 const DTC={up:'--up',down:'--dn',flow:'#a855f7'},DTN={up:['Tăng tích cực','up'],down:['Giảm tiêu cực','dn'],flow:['Dòng tiền vào mạnh','pu']};
 let DG=null,DI=[];
-try{const s=localStorage.getItem('sbdt');if(s){const o=JSON.parse(s);$('dtn').value=o.n||'45';$('dthr').value=o.t||'1.5'}}catch(e){}
+try{const s=localStorage.getItem('sbdt');if(s){const o=JSON.parse(s);$('dtn').value=o.n||'45';$('dthr').value=o.t||'1.5';if(o.g!=null)$('dtmin').value=o.g}}catch(e){}
 function dtList(){
- const thr=parseFloat($('dthr').value)||1.5;
- return Object.entries(D.dt||{}).map(([m,a])=>{const[p,c,r,n,g,s]=a;
+ const thr=parseFloat($('dthr').value)||1.5,gmin=parseFloat($('dtmin').value)||0;
+ return Object.entries(D.dt||{}).filter(([m,a])=>Math.abs(a[1])<=15&&a[4]>=gmin).map(([m,a])=>{const[p,c,r,n,g,s]=a;
   const type=(r>=thr&&n>0&&c>=0)?'flow':(c>0||(c===0&&n>0))?'up':'down';
   return{m,p,c,r,n,g,s,type}});
 }
 function colOf(t){const v=DTC[t];return v.startsWith('--')?getComputedStyle(document.documentElement).getPropertyValue(v).trim():v}
 function rowsD(){
- try{localStorage.setItem('sbdt',JSON.stringify({n:$('dtn').value,t:$('dthr').value}))}catch(e){}
+ try{localStorage.setItem('sbdt',JSON.stringify({n:$('dtn').value,t:$('dthr').value,g:$('dtmin').value}))}catch(e){}
  const all=dtList();
  const ord={up:0,flow:1,down:2};
  DI=[...all].sort((a,b)=>b.s-a.s).slice(0,+$('dtn').value).sort((a,b)=>ord[a.type]-ord[b.type]||b.s-a.s);
@@ -263,7 +264,7 @@ $('dcv').addEventListener('pointermove',e=>{const d=dtHit(e),t=$('dtip');if(!d){
  t.style.display='block';t.style.left=Math.min(e.clientX+14,innerWidth-200)+'px';t.style.top=e.clientY+14+'px'});
 $('dcv').addEventListener('pointerleave',()=>$('dtip').style.display='none');
 $('dcv').addEventListener('click',e=>{const d=dtHit(e);if(d){$('dtip').style.display='none';openChart(d.m)}});
-$('dtn').onchange=rowsD;$('dthr').oninput=rowsD;
+$('dtn').onchange=rowsD;$('dthr').oninput=rowsD;$('dtmin').oninput=rowsD;
 window.addEventListener('resize',()=>{if(view==='dt')drawDT()});
 function side(){
  const cur=D.tabs[tab]||{};
