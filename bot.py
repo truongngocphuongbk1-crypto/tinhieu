@@ -224,6 +224,19 @@ def lay_gia_nhanh(ma, la_chi_so, cache, moi):
                 time.sleep(2)
     if j:
         them_nen_hom_nay(d, j, ds, hom_nay)
+        # Dòng tiền trong phiên: cộng KL các nến 15 phút tăng (mua chủ động) và giảm (bán chủ động)
+        if ds and not la_chi_so:
+            mua = ban = 0.0
+            for i in ds:
+                v = j["v"][i] or 0
+                if j["c"][i] > j["o"][i]:
+                    mua += v
+                elif j["c"][i] < j["o"][i]:
+                    ban += v
+                else:
+                    mua += v / 2
+                    ban += v / 2
+            d["dt"] = [mua, ban]
     if gio and len(gio["c"]) > 60:
         d["gio"] = {k: list(gio[k]) for k in "tohlcv"}
         if j and ds:
@@ -275,6 +288,41 @@ def lay_gia(ma, la_chi_so=False):
                 loi.append(f"{ten}: {e}")
                 time.sleep(0.5)
     raise RuntimeError("; ".join(loi[-2:]))
+
+
+# ---------------- Dòng tiền trong phiên ----------------
+PHIEN = [(9 * 60, 11 * 60 + 30), (13 * 60, 14 * 60 + 45)]   # giờ khớp lệnh HOSE (phút trong ngày)
+TONG_PHUT = sum(b - a for a, b in PHIEN)                     # 255 phút
+
+
+def ty_le_phien(now):
+    """Phần phiên đã trôi qua (0..1). Tối thiểu 15 phút để đầu phiên không bị phóng đại."""
+    p = now.hour * 60 + now.minute
+    da = sum(max(0, min(p, b) - a) for a, b in PHIEN)
+    return max(15, da) / TONG_PHUT
+
+
+def dong_tien(d, now, hom_nay):
+    """Trả về [giá, %thay đổi, KL/TB (lần), ròng chủ động (-1..1), GTGD (tỷ), điểm sức mạnh]."""
+    c, v = d["c"], d["v"]
+    if len(c) < 22:
+        return None
+    hom_nay_co = d["t"][-1] == hom_nay
+    frac = ty_le_phien(now) if hom_nay_co else 1.0     # chưa vào phiên -> dùng phiên gần nhất, đủ cả phiên
+    tb20 = sum(v[-21:-1]) / 20
+    if tb20 <= 0:
+        return None
+    ratio = v[-1] / (tb20 * frac)
+    if hom_nay_co and d.get("dt") and sum(d["dt"]) > 0:
+        mua, ban = d["dt"]
+        net = (mua - ban) / (mua + ban)
+    else:   # không có nến 15 phút: ước lượng bằng vị trí giá đóng cửa trong biên độ ngày
+        h, l = d["h"][-1], d["l"][-1]
+        net = ((c[-1] - l) - (h - c[-1])) / (h - l) if h > l else 0.0
+    chg = (c[-1] / c[-2] - 1) * 100 if c[-2] else 0.0
+    gt = v[-1] * c[-1] / 1e6            # giá theo nghìn đồng -> tỷ đồng
+    diem = ratio * (1 + abs(net) * 0.5)
+    return [round(c[-1], 2), round(chg, 2), round(ratio, 2), round(net, 3), round(gt, 1), round(diem, 2)]
 
 
 # ---------------- Chỉ báo ----------------
@@ -742,7 +790,16 @@ def main():
         if isinstance(d, dict) and len(d["c"]) > 1:
             idx[k] = [round(d["c"][-1], 2), round((d["c"][-1] / d["c"][-2] - 1) * 100, 2)]
 
-    data = dict(asof=now.strftime("%H:%M %d/%m/%Y"), idx=idx, tabs=tabs, nganh={t: xep_nganh(r) for t, r in nganh_raw.items()}, symbols=ds, missing=thieu,
+    dt = {}
+    for m, d in co.items():
+        try:
+            x = dong_tien(d, now, hom_nay)
+            if x:
+                dt[m] = x
+        except Exception as e:
+            print(f"{m}: lỗi tính dòng tiền ({e})")
+
+    data = dict(asof=now.strftime("%H:%M %d/%m/%Y"), idx=idx, tabs=tabs, dt=dt, nganh={t: xep_nganh(r) for t, r in nganh_raw.items()}, symbols=ds, missing=thieu,
                 telegram=os.environ.get("TELEGRAM_LINK", ""))
     json.dump(data, open(os.path.join(SITE, "data.json"), "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
