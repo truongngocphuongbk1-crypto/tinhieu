@@ -169,9 +169,12 @@
 "2026-11-11|VTV|supertrend|b",
 "2026-11-11|VTV|vuot_khang_cu|b",
 "2026-11-12 09:00|MCH|bat_day_1h|s",
+"2026-11-12|BAF|vuot_khang_cu|s",
 "2026-11-12|CII|vuot_khang_cu|b",
+"2026-11-12|DPR|ema|s",
 "2026-11-12|MSN|ema|s",
 "2026-11-12|MSR|ema|s",
+"2026-11-12|PAC|ema|b",
 "2026-11-12|VSC|ema|b"
 ]
 }
