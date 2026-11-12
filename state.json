@@ -176,6 +176,7 @@
 "2026-11-12 10:00|DXG|bat_day_1h|s",
 "2026-11-12 10:00|SHB|bat_day_1h|s",
 "2026-11-12 10:00|VPI|bat_day_1h|s",
+"2026-11-12 11:00|MCH|bat_day_1h|b",
 "2026-11-12|BAF|vuot_khang_cu|s",
 "2026-11-12|CII|vuot_khang_cu|b",
 "2026-11-12|DCL|supertrend|s",
@@ -187,6 +188,7 @@
 "2026-11-12|MSN|ema|s",
 "2026-11-12|MSR|ema|s",
 "2026-11-12|PAC|ema|b",
+"2026-11-12|PDR|supertrend|b",
 "2026-11-12|PLC|ema|s",
 "2026-11-12|VCK|vuot_khang_cu|s",
 "2026-11-12|VSC|ema|b"
