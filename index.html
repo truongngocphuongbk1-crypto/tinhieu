@@ -78,6 +78,14 @@ td.tkc:hover,td.tkc:focus-visible{text-decoration-style:solid;outline:none}
 .sellrow td{background:rgba(239,68,68,.16)}.sellrow td:first-child{background:var(--dn);color:#fff}
 .dt{color:var(--up);letter-spacing:1px;font-size:11px}.dt i{font-style:normal;color:var(--bd)}
 td small{color:var(--mut)}
+.dtl{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;font-size:13px;margin:4px 0 8px}
+.dtl span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.dtc{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:center;font-size:13px;color:var(--mut);margin-bottom:6px}
+.dtc select,.dtc input{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font:inherit;width:auto}
+#dcv{width:100%;max-width:680px;aspect-ratio:1/1;display:block;margin:0 auto;cursor:pointer}
+.pu{color:#a855f7;font-weight:700}
+.dtnote{color:var(--mut);font-size:12px;text-align:center;margin:6px 0 10px;line-height:1.5}
+#dtip{position:fixed;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;padding:7px 10px;border-radius:6px;font-size:12px;line-height:1.5;display:none;z-index:50}
 </style>
 </head>
 <body>
@@ -96,6 +104,16 @@ td small{color:var(--mut)}
         <th>Mã CK</th><th>Giá H.tại</th><th>Thay đổi</th><th>Khối lượng</th><th>Giá mua / ĐCB</th><th class="ctr">ROBOT</th><th>T+</th><th>Ngày mua</th><th>Target 1</th><th>Target 2</th><th>Lãi/Lỗ</th>
       </tr></thead><tbody id="body"></tbody></table></div>
 <div class="tw" id="ngw" style="max-height:78vh" hidden><table><thead><tr><th>Mã CK</th><th>Giá</th><th>+/-</th><th class="ctr">Trạng thái</th><th>Lãi/Lỗ</th><th>T+</th><th>SL / Vào lại</th><th>Sức mạnh vs ngành (20 phiên)</th></tr></thead><tbody id="ngb"></tbody></table></div>
+      <div id="dtw" hidden>
+  <h2 style="margin-bottom:6px">BẢN ĐỒ SỨC MẠNH DÒNG TIỀN</h2>
+  <div class="dtl"><span style="--c:var(--up)">Mã tăng giá tích cực</span><span style="--c:var(--dn)">Mã giảm tiêu cực</span><span style="--c:#a855f7">Mã dòng tiền vào mạnh</span></div>
+  <div class="dtc">Số mã trên biểu đồ <select id="dtn"><option>30</option><option selected>45</option><option>60</option><option>90</option></select>
+    Ngưỡng dòng tiền mạnh <input id="dthr" type="number" value="1.5" step="0.1" min="1" style="width:64px"> lần</div>
+  <canvas id="dcv" role="img" aria-label="Biểu đồ tròn sức mạnh dòng tiền"></canvas>
+  <p class="dtnote">Độ dài thanh = <b>Điểm sức mạnh</b> = KL khớp so với KL TB 20 phiên (đã quy đổi theo thời gian phiên) × mức mua/bán chủ động.<br>Bấm vào thanh hoặc mã để xem đồ thị.</p>
+  <div class="tw" style="max-height:520px"><table style="min-width:620px"><thead><tr><th>Mã CK</th><th>Giá</th><th>+/-</th><th>KL so với TB</th><th>Mua - Bán chủ động</th><th>GTGD (tỷ)</th><th>Điểm</th><th class="ctr">Nhóm</th></tr></thead><tbody id="dtb"></tbody></table></div>
+</div>
+<div id="dtip"></div>
       <details id="miss"><summary id="ms"></summary><div id="ml"></div></details>
     </div>
   </div>
@@ -155,18 +173,18 @@ async function load(){
 }
 function rbClass(r){return/^MUA$/i.test(r)?'rb buy':/^BÁN$/i.test(r)?'rb sell':'rb hold'}
 function render(){
-$('vw').innerHTML='';[['tin','Bảng tín hiệu'],['nganh','Theo ngành']].forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.className=v===view?'on':'';b.onclick=()=>{view=v;flt="Tất cả";try{localStorage.setItem('sbview',v)}catch(e){}render()};$('vw').appendChild(b)});
+$('vw').innerHTML='';[['tin','Bảng tín hiệu'],['nganh','Theo ngành'],['dt','Dòng tiền']].forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.className=v===view?'on':'';b.onclick=()=>{view=v;flt="Tất cả";try{localStorage.setItem('sbview',v)}catch(e){}render()};$('vw').appendChild(b)});
  $('tabs').innerHTML='';TABN.filter(t=>t!==TEN1H).forEach(t=>{const b=document.createElement('button');b.textContent=t;b.className=(t===tab||(t==='Bắt Đáy'&&tab===TEN1H))?'on':'';b.onclick=()=>{tab=t;flt="Tất cả";try{localStorage.setItem('sbtab',t)}catch(e){}render()};$('tabs').appendChild(b)});
  // Nút chọn khung thời gian (chỉ tab Bắt Đáy)
- $('kh').hidden=TABKEY[tab]!=='bat_day';$('kh').innerHTML='';
+ $('tabs').hidden=view==='dt';$('kh').hidden=TABKEY[tab]!=='bat_day'||view==='dt';$('kh').innerHTML='';
  [['Bắt Đáy','Khung 1 ngày'],[TEN1H,'Khung 1 giờ']].forEach(([t,nh])=>{const b=document.createElement('button');b.textContent=nh;b.className=t===tab?'on':'';b.onclick=()=>{tab=t;flt="Tất cả";try{localStorage.setItem('sbtab',t)}catch(e){}render()};$('kh').appendChild(b)});
- $('flt').innerHTML='';(view==='nganh'?[]:["Tất cả","MUA","NẮM GIỮ","BÁN"]).forEach(f=>{const b=document.createElement('button');b.textContent=f;b.className=f===flt?'on':'';b.onclick=()=>{flt=f;render()};$('flt').appendChild(b)});
+ $('flt').innerHTML='';(view!=='tin'?[]:["Tất cả","MUA","NẮM GIỮ","BÁN"]).forEach(f=>{const b=document.createElement('button');b.textContent=f;b.className=f===flt?'on':'';b.onclick=()=>{flt=f;render()};$('flt').appendChild(b)});
  const i=document.createElement('input');i.placeholder='Tìm mã…';i.value=q;i.oninput=e=>{q=e.target.value.toUpperCase();rows()};$('flt').appendChild(i);
  $('idx').innerHTML=["VNINDEX","VN30"].map(k=>{const v=D.idx[k];return`<div><small>${k}</small><span>${v&&v[0]!=null?nf(v[0]):'–'}</span> ${v&&v[1]!=null?`<span class="${cls(v[1])}" style="font-size:14px">${arrow(v[1])} ${nf(Math.abs(v[1]))}%</span>`:''}</div>`}).join('');
  rows();side();
 }
 function rows(){
-$('tbw').hidden=view==='nganh';$('ngw').hidden=view!=='nganh';if(view==='nganh')rowsN();
+$('tbw').hidden=view!=='tin';$('ngw').hidden=view!=='nganh';$('dtw').hidden=view!=='dt';if(view==='nganh')rowsN();if(view==='dt')rowsD();
  const cur=D.tabs[tab]||{};
  const have=Object.keys(cur).filter(m=>cur[m].p!=null&&!/CHỜ/i.test(cur[m].rb)).sort();
  const list=have.filter(m=>(flt==="Tất cả"||(flt==="NẮM GIỮ"?/GIỮ/i.test(cur[m].rb):cur[m].rb.toUpperCase().startsWith(flt)))&&(!q||m.includes(q))).sort((a,b)=>(/^MUA$/i.test(cur[b].rb)?1:0)-(/^MUA$/i.test(cur[a].rb)?1:0));
@@ -196,6 +214,57 @@ const lv=x.muc==null?'–':xa?`SL <b>${nf(x.muc,dec)}</b>`:`Vào lại &gt; <b>$
 h+=`<tr class="${x.hn?(xa?'buyrow':'sellrow'):''}"><td class="tkc ${xa?'sx':'sh'}" data-m="${x.m}" tabindex="0">${x.m}</td><td class="${cls(x.c)}">${nf(x.p,dec)}</td><td class="${cls(x.c)}">${arrow(x.c)}${nf(Math.abs(x.c))}%</td><td class="ctr">${st}</td><td class="${cls(x.pl)}">${sg(x.pl)}%</td><td>T+${x.t} <small class="${xa?'xg':'hg'}">${xa?'giữ':'ngoài'}</small></td><td>${lv}</td><td>${dot(x.sm)} <b>${x.sm}</b> <small>(${sg(x.r)}%)</small></td></tr>`})});
 $('ngb').innerHTML=h||`<tr><td colspan="8" class="empty">${G.length?'Không có mã phù hợp.':'Chưa có dữ liệu ngành, chờ bot chạy lượt kế tiếp (khoảng 5 phút).'}</td></tr>`;
 }
+// ================= DÒNG TIỀN =================
+const DTC={up:'--up',down:'--dn',flow:'#a855f7'},DTN={up:['Tăng tích cực','up'],down:['Giảm tiêu cực','dn'],flow:['Dòng tiền vào mạnh','pu']};
+let DG=null,DI=[];
+try{const s=localStorage.getItem('sbdt');if(s){const o=JSON.parse(s);$('dtn').value=o.n||'45';$('dthr').value=o.t||'1.5'}}catch(e){}
+function dtList(){
+ const thr=parseFloat($('dthr').value)||1.5;
+ return Object.entries(D.dt||{}).map(([m,a])=>{const[p,c,r,n,g,s]=a;
+  const type=(r>=thr&&n>0&&c>=0)?'flow':(c>0||(c===0&&n>0))?'up':'down';
+  return{m,p,c,r,n,g,s,type}});
+}
+function colOf(t){const v=DTC[t];return v.startsWith('--')?getComputedStyle(document.documentElement).getPropertyValue(v).trim():v}
+function rowsD(){
+ try{localStorage.setItem('sbdt',JSON.stringify({n:$('dtn').value,t:$('dthr').value}))}catch(e){}
+ const all=dtList();
+ const ord={up:0,flow:1,down:2};
+ DI=[...all].sort((a,b)=>b.s-a.s).slice(0,+$('dtn').value).sort((a,b)=>ord[a.type]-ord[b.type]||b.s-a.s);
+ drawDT();
+ const sg=v=>(v>0?'+':'')+nf(v);
+ $('dtb').innerHTML=all.filter(x=>!q||x.m.includes(q)).sort((a,b)=>b.s-a.s).map(x=>{const dec=x.p>1000?1:2,t=DTN[x.type];
+  return`<tr><td class="tkc ${t[1]}" data-m="${x.m}" tabindex="0">${x.m}</td><td class="${cls(x.c)}">${nf(x.p,dec)}</td><td class="${cls(x.c)}">${arrow(x.c)}${nf(Math.abs(x.c))}%</td><td>${nf(x.r)} lần</td><td class="${cls(x.n)}">${x.n>0?'+':''}${Math.round(x.n*100)}%</td><td>${nf(x.g,1)}</td><td><b>${nf(x.s)}</b></td><td class="ctr ${t[1]}">${t[0]}</td></tr>`}).join('')
+  ||'<tr><td colspan="8" class="empty">Chưa có dữ liệu dòng tiền, chờ bot chạy lượt kế tiếp (khoảng 5 phút).</td></tr>';
+}
+function drawDT(){
+ const cv=$('dcv');if(cv.offsetParent===null)return;
+ const W=cv.clientWidth,dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=W*dpr;
+ const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,W);
+ const it=DI;if(!it.length){DG=null;return}
+ const cs=getComputedStyle(document.documentElement),grid=cs.getPropertyValue('--bd').trim()||'#444',mut=cs.getPropertyValue('--mut').trim()||'#999';
+ const cx=W/2,cy=W/2,inner=W*0.035,outer=W/2-W*0.09,mx=Math.max(...it.map(i=>i.s),1),n=it.length,st=Math.PI*2/n;
+ x.strokeStyle=grid;x.lineWidth=1;x.fillStyle=mut;x.font=`${Math.max(9,W*0.017)}px system-ui`;x.textAlign='left';x.textBaseline='alphabetic';
+ for(let k=1;k<=6;k++){const r=inner+(outer-inner)*k/6;x.beginPath();x.arc(cx,cy,r,0,7);x.stroke()}
+ for(let i=0;i<n;i++){const a=-Math.PI/2+i*st;x.beginPath();x.moveTo(cx+inner*Math.cos(a),cy+inner*Math.sin(a));x.lineTo(cx+outer*Math.cos(a),cy+outer*Math.sin(a));x.stroke()}
+ const pad=st*0.14;
+ it.forEach((d,i)=>{const a0=-Math.PI/2+i*st+pad,a1=a0+st-2*pad,r=inner+(outer-inner)*d.s/mx,c=colOf(d.type);
+  x.fillStyle=c;x.beginPath();x.arc(cx,cy,r,a0,a1);x.arc(cx,cy,inner,a1,a0,true);x.closePath();x.fill();
+  const am=(a0+a1)/2,lr=outer+W*0.04;x.font=`700 ${Math.max(9,Math.min(14,W*0.021))}px system-ui`;x.textAlign='center';x.textBaseline='middle';
+  x.fillText(d.m,cx+lr*Math.cos(am),cy+lr*Math.sin(am))});
+ x.fillStyle=cs.getPropertyValue('--pn').trim()||'#111';x.beginPath();x.arc(cx,cy,inner-2,0,7);x.fill();
+ const pn=cs.getPropertyValue('--pn').trim()||'#111';x.font=`${Math.max(9,W*0.016)}px system-ui`;x.textAlign='center';x.textBaseline='middle';
+ for(let k=2;k<=6;k+=2){const r=inner+(outer-inner)*k/6,t=nf(mx*k/6),w=x.measureText(t).width+6,ty=cy+r;x.fillStyle=pn;x.globalAlpha=.85;x.fillRect(cx-w/2,ty-8,w,16);x.globalAlpha=1;x.fillStyle=mut;x.fillText(t,cx,ty)}
+ DG={cx,cy,inner,outer,st,n,W};
+}
+function dtHit(e){if(!DG)return null;const r=$('dcv').getBoundingClientRect(),s=DG.W/r.width,px=(e.clientX-r.left)*s-DG.cx,py=(e.clientY-r.top)*s-DG.cy,dd=Math.hypot(px,py);
+ if(dd<DG.inner||dd>DG.outer+DG.W*0.07)return null;let a=Math.atan2(py,px)+Math.PI/2;if(a<0)a+=Math.PI*2;return DI[Math.floor(a/DG.st)%DG.n]}
+$('dcv').addEventListener('pointermove',e=>{const d=dtHit(e),t=$('dtip');if(!d){t.style.display='none';return}
+ t.innerHTML=`<b>${d.m}</b> · ${DTN[d.type][0]}<br>Giá ${nf(d.p)} (${d.c>0?'+':''}${nf(d.c)}%)<br>KL so với TB: <b>${nf(d.r)} lần</b><br>Mua - Bán chủ động: ${d.n>0?'+':''}${Math.round(d.n*100)}%<br>GTGD: ${nf(d.g,1)} tỷ · Điểm <b>${nf(d.s)}</b>`;
+ t.style.display='block';t.style.left=Math.min(e.clientX+14,innerWidth-200)+'px';t.style.top=e.clientY+14+'px'});
+$('dcv').addEventListener('pointerleave',()=>$('dtip').style.display='none');
+$('dcv').addEventListener('click',e=>{const d=dtHit(e);if(d){$('dtip').style.display='none';openChart(d.m)}});
+$('dtn').onchange=rowsD;$('dthr').oninput=rowsD;
+window.addEventListener('resize',()=>{if(view==='dt')drawDT()});
 function side(){
  const cur=D.tabs[tab]||{};
  const w=Object.keys(cur).filter(m=>/^CHỜ MUA$/i.test(cur[m].rb)).sort();
@@ -325,7 +394,7 @@ function hover(e){
  const k=Math.min(cn,hcur.c.length),r=$('cv').getBoundingClientRect(),bw=(r.width-CPL-CPR)/k,i=Math.floor((e.clientX-r.left-CPL)/bw);
  const nx=(i<0||i>=k)?null:i;if(nx!==hx){hx=nx;drawChart()}
 }
-['body','wb','sb','ngb'].forEach(id=>{
+['body','wb','sb','ngb','dtb'].forEach(id=>{
  $(id).addEventListener('click',e=>{const t=e.target.closest('[data-m]');if(t)openChart(t.dataset.m)});
  $(id).addEventListener('keydown',e=>{if(e.key==='Enter'){const t=e.target.closest('[data-m]');if(t)openChart(t.dataset.m)}});
 });
