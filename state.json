@@ -211,6 +211,7 @@
 "2026-11-13 09:00|NLG|bat_day_1h|s",
 "2026-11-13 09:00|TSC|bat_day_1h|s",
 "2026-11-13 10:00|AAA|bat_day_1h|s",
+"2026-11-13 10:00|HII|bat_day_1h|s",
 "2026-11-13|APH|ema|s",
 "2026-11-13|BVS|vuot_khang_cu|s",
 "2026-11-13|FPT|bat_day|s",
@@ -218,6 +219,7 @@
 "2026-11-13|TCH|bat_day|s",
 "2026-11-13|TSC|bat_day|s",
 "2026-11-13|TV2|vuot_khang_cu|b",
-"2026-11-13|VGS|vuot_khang_cu|b"
+"2026-11-13|VGS|vuot_khang_cu|b",
+"2026-11-13|VJC|vuot_khang_cu|b"
 ]
 }
