@@ -226,9 +226,11 @@
 "2026-11-16|CTG|vuot_khang_cu|s",
 "2026-11-16|CTS|vuot_khang_cu|s",
 "2026-11-16|DIG|vuot_khang_cu|s",
+"2026-11-16|HCD|vuot_khang_cu|s",
 "2026-11-16|HHV|vuot_khang_cu|s",
 "2026-11-16|MCH|bat_day|b",
 "2026-11-16|PET|ema|s",
+"2026-11-16|PLC|ema|s",
 "2026-11-16|PVB|bat_day|b",
 "2026-11-16|SHS|vuot_khang_cu|s",
 "2026-11-16|SJD|ema|s",
@@ -236,6 +238,7 @@
 "2026-11-16|TCX|ema|s",
 "2026-11-16|VCK|ema|s",
 "2026-11-16|VIC|vuot_khang_cu|b",
+"2026-11-16|VIX|vuot_khang_cu|s",
 "2026-11-16|VPD|ema|s"
 ]
 }
