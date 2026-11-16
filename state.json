@@ -1,32 +1,6 @@
 {
 "tong_ket": "2026-11-13",
 "da_gui": [
-"2026-11-05|ADS|vuot_khang_cu|s",
-"2026-11-05|AGR|ema|b",
-"2026-11-05|BMI|ema|s",
-"2026-11-05|BVS|ema|b",
-"2026-11-05|CEO|vuot_khang_cu|b",
-"2026-11-05|CTG|vuot_khang_cu|b",
-"2026-11-05|DPR|ema|b",
-"2026-11-05|DXG|ema|b",
-"2026-11-05|DXG|supertrend|b",
-"2026-11-05|FTS|ema|b",
-"2026-11-05|HHS|vuot_khang_cu|b",
-"2026-11-05|IDI|ema|s",
-"2026-11-05|MWG|ema|b",
-"2026-11-05|PPC|ema|s",
-"2026-11-05|SHS|ema|b",
-"2026-11-05|SIP|ema|b",
-"2026-11-05|SIP|supertrend|b",
-"2026-11-05|SSI|ema|b",
-"2026-11-05|TCX|supertrend|b",
-"2026-11-05|TVN|ema|s",
-"2026-11-05|VCI|ema|b",
-"2026-11-05|VCK|ema|b",
-"2026-11-05|VIX|ema|b",
-"2026-11-05|VIX|supertrend|b",
-"2026-11-05|VIX|vuot_khang_cu|b",
-"2026-11-05|VND|vuot_khang_cu|b",
 "2026-11-06|ABB|supertrend|s",
 "2026-11-06|APH|ema|b",
 "2026-11-06|BAF|vuot_khang_cu|s",
@@ -240,6 +214,8 @@
 "2026-11-13|TV2|vuot_khang_cu|b",
 "2026-11-13|VCI|vuot_khang_cu|s",
 "2026-11-13|VGS|vuot_khang_cu|b",
-"2026-11-13|VJC|vuot_khang_cu|b"
+"2026-11-13|VJC|vuot_khang_cu|b",
+"2026-11-16|CEO|vuot_khang_cu|s",
+"2026-11-16|SHS|vuot_khang_cu|s"
 ]
 }
