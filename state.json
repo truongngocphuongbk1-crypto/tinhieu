@@ -224,6 +224,8 @@
 "2026-11-16 10:00|CTD|bat_day_1h|s",
 "2026-11-16 10:00|NLG|bat_day_1h|s",
 "2026-11-16 10:00|VHC|bat_day_1h|s",
+"2026-11-16 13:00|AAA|bat_day_1h|b",
+"2026-11-16 13:00|TV2|bat_day_1h|s",
 "2026-11-16|ADS|bat_day|s",
 "2026-11-16|BFC|ema|s",
 "2026-11-16|CEO|vuot_khang_cu|s",
@@ -243,6 +245,7 @@
 "2026-11-16|HHV|vuot_khang_cu|s",
 "2026-11-16|IDI|supertrend|s",
 "2026-11-16|MCH|bat_day|b",
+"2026-11-16|MIG|bat_day|s",
 "2026-11-16|PAC|ema|s",
 "2026-11-16|PET|ema|s",
 "2026-11-16|PLC|ema|s",
@@ -259,6 +262,8 @@
 "2026-11-16|VID|ema|s",
 "2026-11-16|VIX|vuot_khang_cu|s",
 "2026-11-16|VND|vuot_khang_cu|s",
-"2026-11-16|VPD|ema|s"
+"2026-11-16|VPD|ema|s",
+"2026-11-16|VPL|bat_day|s",
+"2026-11-16|VPL|vuot_khang_cu|s"
 ]
 }
