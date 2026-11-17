@@ -262,6 +262,7 @@
 "2026-11-17 09:00|VCB|bat_day_1h|s",
 "2026-11-17 10:00|IDI|bat_day_1h|b",
 "2026-11-17 10:00|SGP|bat_day_1h|s",
+"2026-11-17|ADS|bat_day|s",
 "2026-11-17|ANV|ema|s",
 "2026-11-17|BID|bat_day|s",
 "2026-11-17|BVS|ema|s",
@@ -293,6 +294,7 @@
 "2026-11-17|VJC|bat_day|s",
 "2026-11-17|VJC|vuot_khang_cu|s",
 "2026-11-17|VPG|bat_day|b",
-"2026-11-17|VPI|bat_day|s"
+"2026-11-17|VPI|bat_day|s",
+"2026-11-17|VTP|bat_day|s"
 ]
 }
