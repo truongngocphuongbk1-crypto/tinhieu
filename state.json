@@ -246,8 +246,24 @@
 "2026-11-16|VPD|ema|s",
 "2026-11-16|VPL|bat_day|s",
 "2026-11-16|VPL|vuot_khang_cu|s",
+"2026-11-17 09:00|BID|bat_day_1h|s",
+"2026-11-17 09:00|BSR|bat_day_1h|s",
+"2026-11-17 09:00|MSR|bat_day_1h|s",
+"2026-11-17 09:00|NAB|bat_day_1h|s",
 "2026-11-17 09:00|PVB|bat_day_1h|s",
 "2026-11-17 09:00|PVS|bat_day_1h|s",
-"2026-11-17|BVS|ema|s"
+"2026-11-17 09:00|VCB|bat_day_1h|s",
+"2026-11-17|BID|bat_day|s",
+"2026-11-17|BVS|ema|s",
+"2026-11-17|DXG|vuot_khang_cu|s",
+"2026-11-17|HCD|vuot_khang_cu|s",
+"2026-11-17|HT1|ema|s",
+"2026-11-17|KDH|vuot_khang_cu|s",
+"2026-11-17|MSR|supertrend|s",
+"2026-11-17|NAB|bat_day|s",
+"2026-11-17|NAB|vuot_khang_cu|s",
+"2026-11-17|ORS|ema|s",
+"2026-11-17|PDR|ema|s",
+"2026-11-17|VJC|bat_day|s"
 ]
 }
