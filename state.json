@@ -251,6 +251,7 @@
 "2026-11-17 09:00|CMG|bat_day_1h|s",
 "2026-11-17 09:00|GEX|bat_day_1h|s",
 "2026-11-17 09:00|GVR|bat_day_1h|s",
+"2026-11-17 09:00|MCH|bat_day_1h|s",
 "2026-11-17 09:00|MSR|bat_day_1h|s",
 "2026-11-17 09:00|NAB|bat_day_1h|s",
 "2026-11-17 09:00|PHR|bat_day_1h|s",
@@ -279,9 +280,11 @@
 "2026-11-17|PDR|ema|s",
 "2026-11-17|PHR|bat_day|s",
 "2026-11-17|PPC|bat_day|s",
+"2026-11-17|REE|vuot_khang_cu|s",
 "2026-11-17|VHC|ema|b",
 "2026-11-17|VIB|ema|s",
 "2026-11-17|VID|ema|s",
-"2026-11-17|VJC|bat_day|s"
+"2026-11-17|VJC|bat_day|s",
+"2026-11-17|VJC|vuot_khang_cu|s"
 ]
 }
