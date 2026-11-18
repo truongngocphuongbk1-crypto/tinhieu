@@ -354,10 +354,13 @@
 "2026-11-18|PPC|bat_day|s",
 "2026-11-18|PPC|supertrend|s",
 "2026-11-18|QTP|ema|s",
+"2026-11-18|REE|vuot_khang_cu|s",
 "2026-11-18|THT|supertrend|s",
 "2026-11-18|THT|vuot_khang_cu|s",
+"2026-11-18|TLH|supertrend|s",
 "2026-11-18|VGI|bat_day|s",
 "2026-11-18|VIB|ema|s",
-"2026-11-18|VPD|ema|s"
+"2026-11-18|VPD|ema|s",
+"2026-11-18|VRE|ema|s"
 ]
 }
