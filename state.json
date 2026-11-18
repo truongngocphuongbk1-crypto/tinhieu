@@ -340,6 +340,7 @@
 "2026-11-18 10:00|PVD|bat_day_1h|s",
 "2026-11-18 10:00|VVS|bat_day_1h|s",
 "2026-11-18 11:00|TVN|bat_day_1h|s",
+"2026-11-18 11:00|VMD|bat_day_1h|s",
 "2026-11-18|ADS|bat_day|s",
 "2026-11-18|AGR|ema|s",
 "2026-11-18|APH|supertrend|s",
@@ -371,6 +372,8 @@
 "2026-11-18|TLH|supertrend|s",
 "2026-11-18|VGI|bat_day|s",
 "2026-11-18|VIB|ema|s",
+"2026-11-18|VMD|ema|b",
+"2026-11-18|VMD|supertrend|b",
 "2026-11-18|VPD|ema|s",
 "2026-11-18|VRE|ema|s",
 "2026-11-18|VVS|bat_day|s"
