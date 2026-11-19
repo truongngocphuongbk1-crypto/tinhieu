@@ -25,8 +25,21 @@ do_dai=50, atr=50, he_so=2.5, rsi=14, qua_mua=70, qua_ban=30, cho=10, t_min=2
 ## Đã kiểm tra
 - Khung ngày khớp TradingView (PNJ: dải dưới 20,28 · đường giữa 24,43 · MUA gần nhất 04/08/2026).
 
-## Việc còn chờ quyết
-- Bộ lọc cho Khung 1 giờ (đang báo MUA/cắt lỗ dày khi xu hướng ngày còn giảm):
-  - a) Chỉ MUA 1 giờ khi khung ngày không còn rơi (giá ngày trên dải dưới / đường giữa ngày đi ngang-lên)
-  - b) Chỉ MUA 1 giờ khi khung ngày cũng đang CHỜ MUA
-  - c) Giữ nguyên
+## Cập nhật 19/11/2026
+- Chỉ còn 2 chiến lược: **SuperTrend** và **Bắt Đáy**, mỗi chiến lược có Khung 1 ngày + Khung 1 giờ (đã bỏ EMA 9/21, Lướt T+).
+- Bộ lọc MUA chung (mục `LOC` đầu bot.py): giá trị giao dịch TB 20 phiên ≥ 1 tỷ; CHỈ SỐ ĐỀU (trung bình % tăng/giảm của mọi mã, mỗi mã như nhau, thay cho VNINDEX vốn bị nhóm Vin chi phối) đóng cửa trên EMA 50.
+- Quản lý lệnh: cắt lỗ cứng 7%; chạm Target 1 thì dời cắt lỗ về giá mua.
+- Bắt Đáy: quá 20 phiên chưa chạm Target 1 thì bán (`qua_han`).
+- SuperTrend: Target 1/2 = giá mua + 2/4 lần ATR 14 (mục `SUPERTREND`); bảng hiện mức cắt lỗ.
+- Khung 1 giờ: SuperTrend 1 giờ chỉ MUA khi SuperTrend ngày đang tăng; Bắt Đáy 1 giờ chỉ MUA khi giá ngày trên dải dưới (đã chọn phương án a).
+- Backtest: tab Actions → **Backtest** → Run workflow → kết quả ở file `KET_QUA_BACKTEST.md`.
+
+## Tab "Tài khoản ảo" (thêm 19/11/2026)
+- **Tự giao dịch**: người xem tự tạo tài khoản (vốn 100 triệu – 5 tỷ), đặt lệnh Xanh/Hồng (mua/bán).
+  Lưu trên trình duyệt của từng người (localStorage), không cần đăng nhập, chưa có bảng xếp hạng.
+  - Lệnh thị trường: chỉ khớp 9:15–11:30, 13:00–14:30, theo giá bot cập nhật (~5 phút/lần).
+  - Lệnh giá đặt: hiệu lực 1 phiên; đặt ngoài giờ thì chờ phiên tới (khớp nếu giá thấp nhất/cao nhất chạm giá đặt),
+    đặt trong giờ thì khớp ngay khi giá chạm, hết phiên xét theo giá đóng cửa.
+  - Phí 0,15%/lệnh, thuế bán 0,1%, lô 100, bán được từ T+2. Có bảng lãi/lỗ theo từng phiên.
+- **Tài khoản bot tự động**: 2 tài khoản (SuperTrend, Bắt Đáy), mỗi tk 1 tỷ, tối đa 10 mã, bot tự mua/bán theo tín hiệu
+  khung ngày sau 15h mỗi phiên (mục `TAI_KHOAN` đầu bot.py). Xem bằng mật khẩu = GitHub secret `TK_MAT_KHAU`.

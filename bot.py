@@ -5,27 +5,42 @@ Chạy tự động trên GitHub Actions mỗi 5 phút trong giờ giao dịch.
 
 Việc bot làm mỗi lần chạy:
   1. Lấy giá nến ngày của các mã trong DANH_SACH_MA (gồm cả phiên hôm nay đang chạy)
-  2. Tính 4 chiến lược: SuperTrend (10,3), EMA 9/21, Lướt T+ (vượt kháng cự), Bắt Đáy (kênh giá + tam giác)
+  2. Tính 2 chiến lược: SuperTrend (10,3) và Bắt Đáy (kênh giá + tam giác), mỗi chiến lược có Khung 1 ngày và Khung 1 giờ
   3. Có tín hiệu MUA/BÁN mới trong hôm nay -> gửi Telegram (mỗi tín hiệu chỉ gửi 1 lần)
   4. Ghi file dữ liệu cho trang web vào thư mục site/
 
 Chạy thử trên máy:   python bot.py --test     (chỉ lấy 3 mã, không gửi Telegram)
 """
-import json, os, sys, time, shutil, urllib.request, urllib.parse
+import bisect, hashlib, json, os, sys, time, shutil, urllib.request, urllib.parse
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
 
 # ============ PHẦN CẤU HÌNH (Sếp có thể sửa) ============
-DANH_SACH_MA = """AAA AAT ABB ACB ACL ADS AGR ANV APH ASM BAF BCC BCM BFC BID BKC BMC BMP BMI BSI BSR BVB BVS BVH CBO CEO CII CMG CMX CNG CSM CST CTD CTR CTG CTS CSV DCL DCM DDV DGC DGW DHC DIG DPG DPM DPR DRC DRI DXG DXS DXP EIB EVF EVG FCN FMC FOX FPT FRT FTS G36 GAS GEE GEG GEL GEX GIL GMD GSP GVR HAG HAH HBC HCD HDB HDC HDG HEX HHV HHS HII HNG HPG HSG HT1 HUT IDC IDI KBC KCB KDH KHP KHG KLB KOS KSV L14 LAS LCG LDG LPS LPB MBB MCH MIG MML MPC MSB MSH MSN MSR MVN MWG NAB NBC NHH NKG NLG NTL NTP NVB NVL OC8 OCB OIL ORS PAC PAN PC1 PDR PET PGN PHP PHR PLC PLP PLX PNJ POW PPC PVC PVB PVD PVP PVS PVT QTP REE SAB SBS SGP SHB SHS SIP SJD SMC SSB SSI STB SZC TCB TCH TCM TCX THT TLH TNG TPB TSC TV2 TVD TVN TVS VCB VCK VCI VDE VDS VFS VGC VGI VGL VGS VGT VHC VHM VIB VIC VID VIP VIS VIX VJC VJS VLC VMD VND VNM VOS VPI VPB VPD VPG VPL VPO VPR VPX VRE VSC VSI VST VSU VTO VTP VTV VVS"""
+DANH_SACH_MA = """AAA ABB ACB AGR ANV APH ASM BAF BCM BFC BID BMP BSI BSR BVB BVS BVH CEO CII CMG CSM CST CTD CTR CTG CTS CSV DCL DCM DDV DGC DGW DHC DIG DPG DPM DPR DRC DRI DXG DXS DXP EIB EVF EVG FCN FMC FOX FPT FRT FTS GAS GEE GEG GEL GEX GIL GMD GVR HAG HAH HBC HDB HDC HDG HHV HHS HII HNG HPG HSG HT1 HUT IDC IDI KBC KDH KHG KLB KOS KSV LAS LCG LDG LPS LPB MBB MCH MML MSB MSH MSN MSR MWG NAB NKG NLG NTL NTP NVB NVL OCB OIL ORS PAC PAN PC1 PDR PET PHP PHR PLC PLX PNJ POW PPC PVC PVB PVD PVP PVS PVT QTP REE SAB SBS SHB SHS SIP SJD SSB SSI STB SZC TCB TCH TCM TCX TNG TPB TV2 TVN TVS VCB VCK VCI VDS VFS VGC VGI VGS VGT VHC VHM VIB VIC VIX VJC VND VNM VOS VPI VPB VPL VPX VRE VSC VTO VTP VVS"""
 CHI_SO = ["VNINDEX", "VN30"]
 
 CHIEN_LUOC = {                      # khóa nội bộ -> tên hiện trên web/Telegram
     "supertrend": "SuperTrend (10, 3)",
-    "ema": "EMA 9/21",
-    "vuot_khang_cu": "Lướt T+ (vượt kháng cự)",
     "bat_day": "Bắt Đáy",
 }
-TARGET = {"supertrend": (1.085, 1.135), "ema": (1.085, 1.135), "vuot_khang_cu": (1.04, 1.07)}
+# Tên tab Khung 1 giờ của từng chiến lược (trên web là nút "Khung 1 giờ" bên trong tab chính)
+TEN_1H_CL = {"supertrend": "SuperTrend (1 giờ)", "bat_day": "Bắt Đáy (1 giờ)"}
+# ----- Bộ lọc & quản lý lệnh: áp dụng cho CẢ 2 chiến lược -----
+LOC = dict(
+    gtgd_min=1,       # chỉ MUA mã có giá trị giao dịch TB 20 phiên >= bấy nhiêu TỶ đồng (đặt 0 = tắt)
+    ema_chi_so=50,    # chỉ MUA khi CHỈ SỐ ĐỀU (trung bình mọi mã, mỗi mã như nhau) trên EMA bấy nhiêu phiên (0 = tắt)
+                      # (không dùng VNINDEX vì bị vài mã vốn hóa lớn như nhóm Vin chi phối)
+    lo_toi_da=7,      # giá đóng cửa lỗ quá bấy nhiêu % so với giá mua -> BÁN (cắt lỗ cứng)
+    ve_von=True,      # chạm Target 1 -> dời cắt lỗ lên bằng giá mua (True = bật, False = tắt)
+)
+# SuperTrend: Target 1 / Target 2 = giá mua + bấy nhiêu lần ATR (độ biến động trung bình)
+SUPERTREND = dict(
+    n=10, he_so=3.0,  # thông số SuperTrend (10, 3)
+    atr=14,           # độ dài ATR dùng để tính Target
+    t1_atr=2,         # Target 1 = giá mua + 2 x ATR   (chạm -> bán 1/3)
+    t2_atr=4,         # Target 2 = giá mua + 4 x ATR   (chạm -> bán thêm 1/3)
+    t_min=2,          # chỉ báo cắt lỗ từ T+ này trở đi
+)
 # Bắt Đáy: Target 1 = đường giữa kênh, Target 2 = dải trên (thay đổi theo kênh, không phải % cố định)
 BAT_DAY = dict(
     do_dai=50,        # độ dài đường giữa (EMA)
@@ -36,6 +51,15 @@ BAT_DAY = dict(
     qua_ban=30,       # RSI <= mức này + chạm dải dưới -> chấm cam dưới (CHỜ MUA)
     cho=10,           # sau chấm cam cuối cùng, chờ tam giác tối đa bao nhiêu phiên
     t_min=2,          # đang giữ hàng: chỉ báo chốt lời / cắt lỗ / bán từ T+ này trở đi
+    qua_han=20,       # giữ bấy nhiêu phiên mà chưa chạm Target 1 -> BÁN (đặt 0 = tắt)
+)
+# ----- TÀI KHOẢN ẢO: mỗi chiến lược 1 tài khoản, tự mua/bán theo tín hiệu khung ngày -----
+TAI_KHOAN = dict(
+    von=1_000_000_000,  # vốn ban đầu mỗi tài khoản (đồng)
+    so_ma=10,           # giữ tối đa bấy nhiêu mã; mỗi mã mua khoảng 1/10 tổng tài sản
+    phi_mua=0.15,       # % phí khi mua
+    phi_ban=0.25,       # % phí + thuế khi bán (0,15% phí + 0,1% thuế)
+    gio_chot=15,        # từ giờ này (giờ VN) bot mới chốt giao dịch của phiên, theo giá đóng cửa
 )
 CHO_MUA_CACH = 0.03                 # giá cách điểm kích hoạt <= 3% thì đưa vào "Chờ mua"
 SO_NEN_LUU_DO_THI = 150             # số phiên lưu cho đồ thị trên web
@@ -45,23 +69,23 @@ GIO_TONG_KET = 15                   # sau 15h (giờ VN) gửi 1 tin tổng kế
 NGANH = """
 Ngân hàng: ABB ACB BID BVB CTG EIB HDB KLB LPB MBB MSB NAB NVB OCB SHB SSB STB TCB TPB VCB VIB VPB
 Chứng khoán: AGR BSI BVS CTS FTS LPS ORS SBS SHS SSI TCX TVS VCI VCK VDS VFS VIX VND VPX
-BĐS dân cư: CEO DIG DXG DXS EVG HDC KDH KHG KOS L14 LDG NLG NTL NVL PDR TCH VHM VIC VPI VPL VRE
+BĐS dân cư: CEO DIG DXG DXS EVG HDC KDH KHG KOS LDG NLG NTL NVL PDR TCH VHM VIC VPI VPL VRE
 BĐS KCN: BCM GVR IDC KBC SIP SZC VGC
-Xây dựng & Đầu tư công: CII CTD DPG FCN G36 HBC HHV HUT LCG VSI
-Vật liệu XD & Nhựa: AAA APH BCC BMP HCD HII HT1 NHH NTP PGN PLP
-Thép: HPG HSG NKG SMC TLH TVN VGL VGS VIS
-Dầu khí: BSR CNG GAS GSP OIL PLC PLX PVB PVC PVD PVP PVS PVT
-Điện & Năng lượng: GEE GEG GEL GEX HDG KHP PC1 POW PPC QTP REE SJD TV2 VPD VTV
+Xây dựng & Đầu tư công: CII CTD DPG FCN HBC HHV HUT LCG
+Vật liệu XD & Nhựa: AAA APH BMP HII HT1 NTP
+Thép: HPG HSG NKG TVN VGS
+Dầu khí: BSR GAS OIL PLC PLX PVB PVC PVD PVP PVS PVT
+Điện & Năng lượng: GEE GEG GEL GEX HDG PC1 POW PPC QTP REE SJD TV2
 Hóa chất & Phân bón: BFC CSV DCM DDV DGC DPM LAS
 Cao su: CSM DPR DRC DRI PHR
-Thủy sản: ACL ANV ASM CMX FMC IDI MPC VHC
-Dệt may: AAT ADS GIL MSH TCM TNG VGT
-Bán lẻ & Phân phối: DGW FRT MWG PET PNJ VPG
-Thực phẩm & Nông nghiệp: BAF HAG HNG MCH MML MSN PAN SAB TSC VLC VNM
-Cảng, Vận tải & Hàng không: DXP GMD HAH HHS MVN PHP SGP VIP VJC VOS VSC VST VTO VTP
+Thủy sản: ANV ASM FMC IDI VHC
+Dệt may: GIL MSH TCM TNG VGT
+Bán lẻ & Phân phối: DGW FRT MWG PET PNJ
+Thực phẩm & Nông nghiệp: BAF HAG HNG MCH MML MSN PAN SAB VNM
+Cảng, Vận tải & Hàng không: DXP GMD HAH HHS PHP VJC VOS VSC VTO VTP
 Công nghệ & Viễn thông: CMG CTR FOX FPT VGI
-Bảo hiểm & Tài chính: BMI BVH EVF MIG
-Khoáng sản & Than: BKC BMC CST KCB KSV MSR NBC THT TVD
+Bảo hiểm & Tài chính: BVH EVF
+Khoáng sản & Than: CST KSV MSR
 """
 MA_NGANH = {m: dong.split(":")[0].strip() for dong in NGANH.strip().splitlines() for m in dong.split(":")[1].split()}
 # ========================================================
@@ -408,35 +432,58 @@ def rsi(c, n=14):
     return out
 
 
-def bat_day(d):
+def true_range(h, l, c):
+    return [h[0] - l[0]] + [max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1])) for i in range(1, len(c))]
+
+
+def chi_so_ngay(t):
+    """Số thứ tự ngày giao dịch của từng nến (khung 1 giờ: nhiều nến chung 1 ngày) -> tính T+ theo ngày."""
+    so_ngay, di = 0, []
+    for i, x in enumerate(t):
+        if i and x[:10] != t[i - 1][:10]:
+            so_ngay += 1
+        di.append(so_ngay)
+    return di
+
+
+def ghi_lenh(vao, i_vao, i_ra, gia_ra, da_ban, ly_do, di, t):
+    """Ghi 1 lệnh đã đóng (dùng cho backtest). da_ban = các lần bán bớt [(tỷ lệ, giá)]."""
+    con = 1 - sum(x for x, _ in da_ban)
+    gia_tb = sum(x * g for x, g in da_ban) + con * gia_ra
+    return dict(vao=vao, ra=gia_tb, lai=(gia_tb / vao - 1) * 100, phien=di[i_ra] - di[i_vao],
+                ngay_mua=t[i_vao], ngay_ban=t[i_ra], ly=ly_do)
+
+
+def gia_khop(muc, o):
+    """Giá bán khi chạm 1 mức (Target): nếu phiên mở cửa đã vượt mức thì lấy giá mở cửa."""
+    return o if o > muc else muc
+
+
+def bat_day(d, mo=None):
     """Chiến lược BẮT ĐÁY: kênh xu hướng (EMA 50 ± 2,5 x ATR 50) + RSI + tam giác xác nhận.
     - Chấm cam dưới: giá chạm dải dưới và RSI <= 30 -> CHỜ MUA
     - Chấm cam trên: giá chạm dải trên và RSI >= 70 -> CHỜ BÁN
     - Tam giác xanh (MUA): đang chờ mua, nến tăng và đóng cửa vượt đỉnh phiên trước
-    - Tam giác đỏ (BÁN): đang chờ bán, nến giảm và đóng cửa thủng đáy phiên trước
-    - Đang giữ hàng (từ T+2): chạm đường giữa = Target 1 (bán 1/2), chạm dải trên = Target 2 (bán hết),
-      đóng cửa thủng đáy thấp nhất của vùng cảnh báo = cắt lỗ, tam giác đỏ = bán."""
+      (chỉ MUA khi bộ lọc 'mo' cho phép ở nến đó: thanh khoản, chỉ số đều, khung ngày...)
+    - Đang giữ hàng (từ T+2):
+        chạm đường giữa = Target 1 (bán 1/2, dời cắt lỗ về giá mua), chạm dải trên = Target 2 (bán hết),
+        đóng cửa dưới mức cắt lỗ = BÁN (mức cắt lỗ = cao hơn trong 2 mức: đáy vùng cảnh báo / giá mua - 7%),
+        tam giác đỏ = BÁN, quá 20 phiên chưa chạm Target 1 = BÁN."""
     P = BAT_DAY
     o, h, l, c = d["o"], d["h"], d["l"], d["c"]
     n = len(c)
     giua = ema(c, P["do_dai"])
-    tr = [h[0] - l[0]] + [max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1])) for i in range(1, n)]
-    atr = rma(tr, P["atr"])
+    atr = rma(true_range(h, l, c), P["atr"])
     r = rsi(c, P["rsi"])
     tren = [None if giua[i] is None or atr[i] is None else giua[i] + atr[i] * P["he_so"] for i in range(n)]
     duoi = [None if giua[i] is None or atr[i] is None else giua[i] - atr[i] * P["he_so"] for i in range(n)]
-
-    # Số thứ tự ngày giao dịch của từng nến (khung 1 giờ: nhiều nến chung 1 ngày) -> tính T+ theo ngày
-    so_ngay, di = 0, []
-    for i, x in enumerate(d["t"]):
-        if i and x[:10] != d["t"][i - 1][:10]:
-            so_ngay += 1
-        di.append(so_ngay)
-    b, s, ly, cam_tren, cam_duoi = [], [], {}, [], []
+    di = chi_so_ngay(d["t"])
+    lo = LOC["lo_toi_da"] / 100
+    b, s, ly, cam_tren, cam_duoi, lenh = [], [], {}, [], [], []
     cho_mua = cho_ban = False
     i_cm = i_cb = -1
     day_vung = None
-    giu, vao, i_vao, sl, tp1 = False, None, None, None, False
+    giu, vao, i_vao, sl, tp1, da_ban, day_mua = False, None, None, None, False, [], None
     for i in range(1, n):
         if tren[i] is None or r[i] is None:
             continue
@@ -463,27 +510,147 @@ def bat_day(d):
         if tg_mua:
             cho_mua = False
 
-        thoat = None
+        thoat, gia_ra = None, c[i]
         if giu and di[i] - di[i_vao] >= P["t_min"]:
             if not tp1 and h[i] >= giua[i]:
                 tp1 = True
+                da_ban.append((0.5, gia_khop(giua[i], o[i])))
+                if LOC["ve_von"]:
+                    sl = max(sl, vao)
             if h[i] >= tren[i]:
-                thoat = "Chạm Target 2 (dải trên) - chốt hết"
+                thoat, gia_ra = "Chạm Target 2 (dải trên) - chốt hết", gia_khop(tren[i], o[i])
             elif c[i] < sl:
-                thoat = "Thủng đáy vùng cảnh báo - cắt lỗ"
+                if tp1 and LOC["ve_von"] and sl == vao:
+                    thoat = "Về giá Xanh sau khi chạm Target 1"
+                elif sl > day_mua:
+                    thoat = f"Lỗ quá {LOC['lo_toi_da']}% - cắt lỗ"
+                else:
+                    thoat = "Thủng đáy vùng cảnh báo - cắt lỗ"
             elif tg_ban:
                 thoat = "Tam giác đỏ"
+            elif P["qua_han"] and not tp1 and di[i] - di[i_vao] >= P["qua_han"]:
+                thoat = f"Quá {P['qua_han']} phiên chưa chạm Target 1"
         if thoat:
             s.append(i); ly[i] = thoat; giu = False
+            lenh.append(ghi_lenh(vao, i_vao, i, gia_ra, da_ban, thoat, di, d["t"]))
         elif tg_ban and not giu:
-            s.append(i); ly[i] = "Tam giác đỏ (bán nếu đang giữ mã này)"
-        elif tg_mua and not giu:
-            b.append(i); giu = True; vao = c[i]; i_vao = i; sl = day_vung; tp1 = False
+            s.append(i); ly[i] = "Tam giác đỏ (Hồng nếu đang giữ mã này)"
+        elif tg_mua and not giu and (mo is None or mo[i]):
+            b.append(i); giu = True; vao = c[i]; i_vao = i; tp1 = False; da_ban = []
+            day_mua = day_vung
+            sl = max(day_vung, vao * (1 - lo))
     return dict(giua=giua, tren=tren, duoi=duoi, b=b, s=s, ly=ly, cam_tren=cam_tren, cam_duoi=cam_duoi,
-                giu=giu, vao=vao, i_vao=i_vao, sl=sl, tp1=tp1, cho_mua=cho_mua, cho_ban=cho_ban)
+                giu=giu, vao=vao, i_vao=i_vao, sl=sl, tp1=tp1, cho_mua=cho_mua, cho_ban=cho_ban, lenh=lenh)
 
 
-TEN_1H = "Bắt Đáy (1 giờ)"   # hiện trên web là nút "Khung 1 giờ" bên trong tab Bắt Đáy
+def chay_supertrend(d, mo=None):
+    """Chiến lược SUPERTREND (10, 3):
+    - MUA: SuperTrend đảo lên (chỉ khi bộ lọc 'mo' cho phép ở nến đó)
+    - Target 1 = giá mua + 2 x ATR (bán 1/3, dời cắt lỗ về giá mua), Target 2 = giá mua + 4 x ATR (bán thêm 1/3)
+    - BÁN: SuperTrend đảo xuống, hoặc (từ T+2) đóng cửa lỗ quá 7% / về giá mua sau khi chạm Target 1."""
+    P = SUPERTREND
+    o, h, l, c, t = d["o"], d["h"], d["l"], d["c"], d["t"]
+    n = len(c)
+    st, up = supertrend(h, l, c, P["n"], P["he_so"])
+    atr = rma(true_range(h, l, c), P["atr"])
+    di = chi_so_ngay(t)
+    lo = LOC["lo_toi_da"] / 100
+    b, s, ly, lenh = [], [], {}, []
+    giu, vao, i_vao, t1, t2, tp1, tp2, da_ban = False, None, None, None, None, False, False, []
+    for i in range(1, n):
+        if up[i] is None or up[i - 1] is None:
+            continue
+        dao_len = up[i] == 1 and up[i - 1] == 0
+        dao_xuong = up[i] == 0 and up[i - 1] == 1
+        if giu and i > i_vao:
+            if not tp1 and h[i] >= t1:
+                tp1 = True; da_ban.append((1 / 3, gia_khop(t1, o[i])))
+            if tp1 and not tp2 and h[i] >= t2:
+                tp2 = True; da_ban.append((1 / 3, gia_khop(t2, o[i])))
+            san = max(vao * (1 - lo), vao if (tp1 and LOC["ve_von"]) else 0)
+            thoat = None
+            if dao_xuong:
+                thoat = "SuperTrend đảo chiều giảm"
+            elif di[i] - di[i_vao] >= P["t_min"] and c[i] < san:
+                thoat = "Về giá Xanh sau khi chạm Target 1" if (tp1 and LOC["ve_von"]) else f"Lỗ quá {LOC['lo_toi_da']}% - cắt lỗ"
+            if thoat:
+                s.append(i); ly[i] = thoat; giu = False
+                lenh.append(ghi_lenh(vao, i_vao, i, c[i], da_ban, thoat, di, t))
+                continue
+        if dao_xuong and not giu and not (s and s[-1] == i):
+            s.append(i); ly[i] = "SuperTrend đảo chiều giảm (Hồng nếu đang giữ mã này)"
+        elif dao_len and not giu and atr[i] is not None and (mo is None or mo[i]):
+            b.append(i); giu = True; vao = c[i]; i_vao = i; tp1 = tp2 = False; da_ban = []
+            t1, t2 = vao + P["t1_atr"] * atr[i], vao + P["t2_atr"] * atr[i]
+    sl = None
+    if giu:   # mức cắt lỗ hiện tại = cao nhất trong: đường SuperTrend, giá mua - 7%, (giá mua nếu đã chạm T1)
+        sl = max(st[-1] or 0, vao * (1 - lo), vao if (tp1 and LOC["ve_von"]) else 0)
+    return dict(st=st, up=up, b=b, s=s, ly=ly, lenh=lenh, giu=giu, vao=vao, i_vao=i_vao,
+                t1=t1, t2=t2, tp1=tp1, tp2=tp2, sl=sl)
+
+
+# ---------------- Bộ lọc MUA ----------------
+def chi_so_deu(ds_data):
+    """CHỈ SỐ ĐỀU: mỗi ngày lấy TRUNG BÌNH % tăng/giảm của tất cả các mã (mã nào cũng có trọng số như nhau),
+    rồi cộng dồn thành 1 đường chỉ số (bắt đầu = 100). Nhờ vậy vài mã vốn hóa lớn không kéo lệch được.
+    Ngày giảm/tăng quá 15% của 1 mã (chia cổ tức, tách cổ phiếu...) bị bỏ qua để không làm méo chỉ số."""
+    tong = {}
+    for d in ds_data:
+        t, c = d["t"], d["c"]
+        for i in range(1, len(c)):
+            if c[i - 1]:
+                r = c[i] / c[i - 1] - 1
+                if abs(r) <= 0.15:
+                    x = tong.setdefault(t[i][:10], [0.0, 0])
+                    x[0] += r; x[1] += 1
+    ngay = sorted(k for k, v in tong.items() if v[1] >= 5)
+    out, gia = dict(t=[], c=[]), 100.0
+    for k in ngay:
+        s, n = tong[k]
+        gia *= 1 + s / n
+        out["t"].append(k); out["c"].append(gia)
+    return out
+
+
+def thi_truong_ok(cs):
+    """{ngày: True/False}: chỉ số đều đóng cửa trên EMA (LOC['ema_chi_so']) hay không. Tắt bộ lọc -> {}."""
+    n = LOC["ema_chi_so"]
+    if not n or not isinstance(cs, dict) or len(cs.get("c", [])) < n:
+        return {}
+    e = ema(cs["c"], n)
+    return {t: (x is None or c > x) for t, c, x in zip(cs["t"], cs["c"], e)}
+
+
+def loc_mua_ngay(d, vni):
+    """Danh sách True/False cho từng nến ngày: có được phép MUA không (thanh khoản + chỉ số đều).
+    Thanh khoản tính trên 20 phiên TRƯỚC đó (không dùng phiên đang chạy dở)."""
+    c, v, t = d["c"], d["v"], d["t"]
+    gt = [x * y / 1e6 for x, y in zip(v, c)]          # giá nghìn đồng x KL -> tỷ đồng
+    out, tong = [], 0.0
+    for i in range(len(c)):
+        tb = tong / 20 if i >= 20 else 0.0
+        ok_tk = LOC["gtgd_min"] <= 0 or (i >= 20 and tb >= LOC["gtgd_min"])
+        out.append(ok_tk and vni.get(t[i][:10], True))
+        tong += gt[i]
+        if i >= 20:
+            tong -= gt[i - 20]
+    return out
+
+
+def loc_mua_gio(dg, d, ok_ngay, ind_ngay):
+    """Bộ lọc cho Khung 1 giờ, dựa vào phiên NGÀY gần nhất trước đó:
+    - cả 2: thanh khoản + chỉ số đều của phiên ngày đó phải đạt
+    - SuperTrend 1 giờ: SuperTrend khung ngày đang tăng
+    - Bắt Đáy 1 giờ: giá ngày đóng cửa trên dải dưới của kênh ngày (khung ngày không còn rơi)"""
+    ngay, duoi, up = d["t"], ind_ngay["bd"]["duoi"], ind_ngay["u"]
+    st_ok, bd_ok = [], []
+    for x in dg["t"]:
+        j = bisect.bisect_left(ngay, x[:10]) - 1
+        if j < 0:
+            st_ok.append(False); bd_ok.append(False); continue
+        st_ok.append(ok_ngay[j] and up[j] == 1)
+        bd_ok.append(ok_ngay[j] and (duoi[j] is None or d["c"][j] > duoi[j]))
+    return {"supertrend": st_ok, "bat_day": bd_ok}
 
 
 def dong_bang(p, chg, kl, s):
@@ -492,7 +659,7 @@ def dong_bang(p, chg, kl, s):
                eq=None if s.get("eq") is None else round(s["eq"], 2), rb=s["rb"],
                t=s.get("t"), d=s.get("d", ""),
                bn=None if s.get("bn") is None else round(s["bn"], 2))
-    for k in ("t1", "t2", "sl", "ws"):      # chỉ tab Bắt Đáy có các ô này
+    for k in ("t1", "t2", "sl", "ws"):
         if s.get(k) is not None:
             row[k] = round(s[k], 2)
     if s.get("ly"):
@@ -500,7 +667,7 @@ def dong_bang(p, chg, kl, s):
     return row
 
 
-def trang_thai_bd(d, bd):
+def trang_thai_bd(d, bd, cho_phep=True):
     """Trạng thái ROBOT của tab Bắt Đáy (có thêm Target động, mức cắt lỗ, Chờ bán)."""
     h, l, t, n = d["h"], d["l"], d["t"], len(d["c"])
     kq = None
@@ -511,7 +678,7 @@ def trang_thai_bd(d, bd):
                   t1=bd["giua"][-1], t2=bd["tren"][-1], sl=bd["sl"])
     elif bd["s"] and bd["s"][-1] == n - 1:
         kq = dict(rb="BÁN", eq=None, t=None, d=fmt_ngay(t[-1]), ly=bd["ly"][n - 1])
-    elif bd["cho_mua"]:
+    elif bd["cho_mua"] and cho_phep:
         kq = dict(rb="CHỜ MUA", bn=h[-1])
     if bd["cho_ban"]:
         kq = kq or dict(rb="CHỜ BÁN")
@@ -519,74 +686,78 @@ def trang_thai_bd(d, bd):
     return kq
 
 
-def tinh_chien_luoc(d):
-    """Trả về chỉ báo + danh sách chỉ số nến MUA (b) / BÁN (s) cho từng chiến lược."""
-    h, l, c = d["h"], d["l"], d["c"]
-    n = len(c)
-    st, up = supertrend(h, l, c)
-    e9, e21 = ema(c, 9), ema(c, 21)
-    rs = [None if i < 20 else max(h[i - 20:i]) for i in range(n)]
-    ma10 = sma(c, 10)
-    g = {k: {"b": [], "s": []} for k in CHIEN_LUOC}
-    for i in range(1, n):
-        if up[i] is not None and up[i - 1] is not None and up[i] != up[i - 1]:
-            g["supertrend"]["b" if up[i] else "s"].append(i)
-        if None not in (e9[i], e21[i], e9[i - 1], e21[i - 1]):
-            if e9[i - 1] <= e21[i - 1] and e9[i] > e21[i]:
-                g["ema"]["b"].append(i)
-            elif e9[i - 1] >= e21[i - 1] and e9[i] < e21[i]:
-                g["ema"]["s"].append(i)
-    # Lướt T+: MUA khi đóng cửa vượt đỉnh 20 phiên trước; BÁN khi đóng cửa dưới MA10
-    giu = False
-    for i in range(21, n):
-        if not giu and rs[i] is not None and c[i] > rs[i]:
-            g["vuot_khang_cu"]["b"].append(i); giu = True
-        elif giu and ma10[i] is not None and c[i] < ma10[i]:
-            g["vuot_khang_cu"]["s"].append(i); giu = False
-    bd = bat_day(d)
-    g["bat_day"] = {"b": bd["b"], "s": bd["s"]}
-    return dict(st=st, u=up, e9=e9, e21=e21, rs=rs, ma10=ma10, g=g, bd=bd)
-
-
-def trang_thai(d, ind, key):
-    """Trạng thái ROBOT hiện tại của 1 mã theo 1 chiến lược."""
-    if key == "bat_day":
-        return trang_thai_bd(d, ind["bd"])
-    c, h, t = d["c"], d["h"], d["t"]
-    n = len(c)
-    ev = sorted([(i, "b") for i in ind["g"][key]["b"]] + [(i, "s") for i in ind["g"][key]["s"]])
-    if not ev:
-        return None
-    i, loai = ev[-1]
-    if loai == "b":
-        eq = c[i]
-        t1, t2 = eq * TARGET[key][0], eq * TARGET[key][1]
-        dinh = max(h[i + 1:]) if i < n - 1 else eq   # giá cao nhất từ sau ngày mua
-        rb = "MUA" if i == n - 1 else ("Giữ 1/3" if dinh >= t2 else "Giữ 2/3" if dinh >= t1 else "NẮM GIỮ")
-        return dict(rb=rb, eq=eq, t=n - 1 - i, d=fmt_ngay(t[i]))
-    if i == n - 1:
-        return dict(rb="BÁN", eq=None, t=None, d=fmt_ngay(t[i]))
+def trang_thai_st(d, stt, cho_phep=True):
+    """Trạng thái ROBOT của tab SuperTrend."""
+    c, t, n = d["c"], d["t"], len(d["c"])
+    if stt["giu"]:
+        i = stt["i_vao"]
+        rb = "MUA" if i == n - 1 else "Giữ 1/3" if stt["tp2"] else "Giữ 2/3" if stt["tp1"] else "NẮM GIỮ"
+        return dict(rb=rb, eq=stt["vao"], t=so_phien(t, i), d=fmt_ngay(t[i]),
+                    t1=stt["t1"], t2=stt["t2"], sl=stt["sl"])
+    if stt["s"] and stt["s"][-1] == n - 1:
+        return dict(rb="BÁN", eq=None, t=None, d=fmt_ngay(t[-1]), ly=stt["ly"][n - 1])
     # Không giữ hàng: xem có gần điểm kích hoạt mua không
-    trig = None
-    if key == "supertrend" and ind["u"][-1] == 0:
-        trig = ind["st"][-1]
-    elif key == "vuot_khang_cu":
-        trig = max(h[-20:])
-    if trig and c[-1] < trig <= c[-1] * (1 + CHO_MUA_CACH):
+    trig = stt["st"][-1] if stt["up"][-1] == 0 else None
+    if cho_phep and trig and c[-1] < trig <= c[-1] * (1 + CHO_MUA_CACH):
         return dict(rb="CHỜ MUA", bn=trig)
     return None
 
 
+def tinh_chien_luoc(d, mo=None):
+    """Trả về chỉ báo + danh sách chỉ số nến MUA (b) / BÁN (s) cho từng chiến lược.
+    mo = {"supertrend": [True/False...], "bat_day": [...]}: nến nào được phép MUA (None = không lọc)."""
+    mo = mo or {}
+    stt = chay_supertrend(d, mo.get("supertrend"))
+    bd = bat_day(d, mo.get("bat_day"))
+    g = {"supertrend": {"b": stt["b"], "s": stt["s"]}, "bat_day": {"b": bd["b"], "s": bd["s"]}}
+    return dict(st=stt["st"], u=stt["up"], g=g, bd=bd, stt=stt, mo=mo)
+
+
+def trang_thai(d, ind, key):
+    """Trạng thái ROBOT hiện tại của 1 mã theo 1 chiến lược."""
+    m = ind["mo"].get(key)
+    cho_phep = m is None or (bool(m) and m[-1])
+    if key == "bat_day":
+        return trang_thai_bd(d, ind["bd"], cho_phep)
+    return trang_thai_st(d, ind["stt"], cho_phep)
+
+
+# ---------------- Cơ hội / Rủi ro (độ rộng thị trường) ----------------
+def co_hoi_rui_ro(ds_ma, cs, lui=0):
+    """Chỉ số Cơ hội (0-100) tính trên TẤT CẢ các mã, = trung bình 3 phần:
+      1) % số mã có giá đóng cửa trên MA20             (xu hướng ngắn hạn)
+      2) % số mã có SuperTrend (10,3) ngày đang tăng   (xu hướng trung hạn)
+      3) CHỈ SỐ ĐỀU trên EMA 50 = 100, dưới = 0       (thị trường chung, cũng là bộ lọc MUA của bot)
+    ds_ma = [(d, ind)] ; lui = 0: phiên hiện tại, 1: phiên trước đó. Rủi ro = 100 - Cơ hội."""
+    k = -1 - lui
+    tren_ma20 = co_ma20 = tang_st = co_st = 0
+    for d, ind in ds_ma:
+        c = d["c"]
+        if len(c) < 21 + lui:
+            continue
+        m20 = sum(c[k - 19:k] + [c[k]]) / 20 if lui else sum(c[-20:]) / 20
+        co_ma20 += 1; tren_ma20 += c[k] > m20
+        u = ind["u"][k]
+        if u is not None:
+            co_st += 1; tang_st += u == 1
+    phan = {}
+    if co_ma20:
+        phan["ma20"] = round(100 * tren_ma20 / co_ma20, 1)
+    if co_st:
+        phan["st"] = round(100 * tang_st / co_st, 1)
+    n = LOC["ema_chi_so"] or 50
+    if isinstance(cs, dict) and len(cs.get("c", [])) > n + lui:
+        e = ema(cs["c"], n)
+        if e[k] is not None:
+            phan["cs"] = 100 if cs["c"][k] > e[k] else 0
+            phan["cs_gia"], phan["cs_ema"], phan["cs_n"] = round(cs["c"][k], 2), round(e[k], 2), n
+    ba = [phan[x] for x in ("ma20", "st", "cs") if x in phan]
+    phan["diem"] = round(sum(ba) / len(ba)) if ba else None
+    phan["so_ma"] = co_ma20
+    return phan
+
+
 # ---------------- Bảng theo ngành ----------------
-def gia_cat_ema(e9, e21):
-    """Giá đóng cửa hôm nay để EMA9 cắt EMA21 (điểm SL khi đang giữ / điểm vào lại khi đứng ngoài)."""
-    if len(e9) < 2 or e9[-2] is None or e21[-2] is None:
-        return None
-    a9, a21 = 2 / 10, 2 / 22
-    p = ((1 - a21) * e21[-2] - (1 - a9) * e9[-2]) / (a9 - a21)
-    return p if p > 0 else None
-
-
 def trang_thai_nganh(d, ind, key):
     """Xanh (đang giữ từ lúc MUA) / hồng (đứng ngoài từ lúc BÁN), lãi-lỗ, T+, điểm SL hoặc vào lại."""
     c, n = d["c"], len(d["c"])
@@ -595,16 +766,147 @@ def trang_thai_nganh(d, ind, key):
         return None
     i, s = ev[-1]
     if key == "supertrend":
-        muc = ind["st"][-1]
-    elif key == "ema":
-        muc = gia_cat_ema(ind["e9"], ind["e21"])
-    elif key == "bat_day":
+        muc = ind["stt"]["sl"] if s > 0 else ind["st"][-1]
+    else:   # bat_day
         bd = ind["bd"]
         muc = bd["sl"] if s > 0 else (d["h"][-1] if bd["cho_mua"] else None)
-    else:
-        muc = ind["ma10"][-1] if s > 0 else ind["rs"][-1]
     return dict(s=s, pl=round((c[-1] / c[i] - 1) * 100, 2) if c[i] else 0.0, t=so_phien(d["t"], i),
                 d=fmt_ngay(d["t"][i]), muc=None if muc is None else round(muc, 2), hn=1 if i == n - 1 else 0)
+
+
+# ---------------- TÀI KHOẢN ẢO (giao dịch giấy theo tín hiệu) ----------------
+def tk_moi(ngay):
+    return dict(von=TAI_KHOAN["von"], tien=float(TAI_KHOAN["von"]), ma={}, nhat_ky=[], lich_su=[], bat_dau=ngay)
+
+
+def tk_gia(tk, m, gia):
+    p = tk["ma"][m]
+    return gia.get(m, p.get("gia_ht", p["gia"]))
+
+
+def tk_nav(tk, gia):
+    """Tổng tài sản = tiền mặt + giá trị cổ phiếu (giá theo nghìn đồng -> x1000)."""
+    return tk["tien"] + sum(p["kl"] * tk_gia(tk, m, gia) * 1000 for m, p in tk["ma"].items())
+
+
+def tk_ban(tk, m, ty_le, gia, ngay, ly):
+    """Bán ty_le (1 = bán hết, 1/3, 1/2...) số cổ phiếu MUA BAN ĐẦU của mã m, tại giá đóng cửa."""
+    p = tk["ma"][m]
+    kl = p["kl"] if ty_le >= 1 else max(100, int(p["kl_dau"] * ty_le / 100) * 100)
+    kl = min(kl, p["kl"])
+    tien = kl * gia * 1000
+    phi = tien * TAI_KHOAN["phi_ban"] / 100
+    tk["tien"] += tien - phi
+    lai = ((tien - phi) / (kl * p["gia_von"] * 1000) - 1) * 100
+    tk["nhat_ky"].append(dict(ngay=ngay, ma=m, loai="BÁN", kl=kl, gia=round(gia, 2), tien=round(tien - phi),
+                              lai=round(lai, 2), lai_d=round(tien - phi - kl * p["gia_von"] * 1000), ly=ly))
+    p["kl"] -= kl
+    if p["kl"] <= 0:
+        del tk["ma"][m]
+
+
+def tk_xu_ly_phien(tk, key, ind_ngay, hom_nay):
+    """Chạy 1 lần mỗi phiên, SAU giờ đóng cửa: bán theo tín hiệu, rồi mua mã mới có tín hiệu, rồi ghi sổ."""
+    gia = {m: d["c"][-1] for m, (d, ind) in ind_ngay.items() if d["t"][-1] == hom_nay}
+    phi_mua = TAI_KHOAN["phi_mua"] / 100
+    # 1) BÁN: chiến lược không còn giữ mã đó / bán bớt khi chạm Target (chỉ bán được từ T+2)
+    for m in list(tk["ma"]):
+        p = tk["ma"][m]
+        if m not in gia:
+            continue
+        d, ind = ind_ngay[m]
+        t, n = d["t"], len(d["t"])
+        cl = ind["stt"] if key == "supertrend" else ind["bd"]
+        i0 = t.index(p["ngay"]) if p["ngay"] in t else None
+        tplus = so_phien(t, i0) if i0 is not None else 99
+        con_giu = cl["giu"] and i0 is not None and cl["i_vao"] == i0
+        ly = p.get("cho_ban")
+        if not con_giu and not ly:
+            sau = [i for i in cl["s"] if i0 is None or i > i0]
+            ly = cl["ly"].get(sau[0], "Tín hiệu Hồng") if sau else "Tín hiệu thay đổi"
+        if ly:
+            if tplus < 2:            # chưa đủ T+2 -> chờ, bán ở phiên được phép đầu tiên
+                p["cho_ban"] = ly
+                continue
+            tk_ban(tk, m, 1, gia[m], hom_nay, ly)
+            continue
+        if tplus < 2:
+            continue
+        if key == "supertrend":
+            if cl["tp1"] and not p.get("tp1"):
+                p["tp1"] = True; tk_ban(tk, m, 1 / 3, gia[m], hom_nay, "Chạm Target 1 - chốt 1/3")
+            if m in tk["ma"] and cl["tp2"] and not p.get("tp2"):
+                p["tp2"] = True; tk_ban(tk, m, 1 / 3, gia[m], hom_nay, "Chạm Target 2 - chốt thêm 1/3")
+        elif cl["tp1"] and not p.get("tp1"):
+            p["tp1"] = True; tk_ban(tk, m, 1 / 2, gia[m], hom_nay, "Chạm Target 1 - chốt 1/2")
+    # 2) MUA: mã có tín hiệu XANH đúng phiên hôm nay; nhiều tín hiệu thì ưu tiên mã thanh khoản cao
+    nav = tk_nav(tk, gia)
+    ung = []
+    for m, (d, ind) in ind_ngay.items():
+        if m in tk["ma"] or m not in gia:
+            continue
+        cl = ind["stt"] if key == "supertrend" else ind["bd"]
+        if cl["giu"] and cl["i_vao"] == len(d["c"]) - 1:
+            gt = sum(v * c for v, c in zip(d["v"][-21:-1], d["c"][-21:-1]))
+            ung.append((gt, m))
+    for _, m in sorted(ung, reverse=True):
+        if len(tk["ma"]) >= TAI_KHOAN["so_ma"]:
+            break
+        g = gia[m]
+        muc = min(nav / TAI_KHOAN["so_ma"], tk["tien"] / (1 + phi_mua))
+        kl = int(muc / (g * 1000) / 100) * 100          # lô chẵn 100 cổ phiếu
+        if kl < 100:
+            continue
+        tien = kl * g * 1000
+        tk["tien"] -= tien * (1 + phi_mua)
+        tk["ma"][m] = dict(kl=kl, kl_dau=kl, gia=g, gia_von=g * (1 + phi_mua), ngay=hom_nay)
+        tk["nhat_ky"].append(dict(ngay=hom_nay, ma=m, loai="MUA", kl=kl, gia=round(g, 2),
+                                  tien=round(tien * (1 + phi_mua)), ly="Tín hiệu Xanh"))
+    # 3) Ghi sổ lãi/lỗ của phiên
+    for m in tk["ma"]:
+        tk["ma"][m]["gia_ht"] = tk_gia(tk, m, gia)
+    nav = tk_nav(tk, gia)
+    truoc = tk["lich_su"][-1]["nav"] if tk["lich_su"] else tk["von"]
+    tk["lich_su"].append(dict(ngay=hom_nay, nav=round(nav), lai=round(nav - truoc),
+                              lai_pt=round((nav / truoc - 1) * 100, 2), luy_ke=round((nav / tk["von"] - 1) * 100, 2),
+                              so_ma=len(tk["ma"]), tien=round(tk["tien"])))
+    tk["nhat_ky"] = tk["nhat_ky"][-1000:]
+
+
+def ghi_tai_khoan(tk_all, ind_ngay, now, da_chot):
+    """Ghi file tài khoản ảo cho web. Tên file lấy từ mật khẩu (GitHub secret TK_MAT_KHAU):
+    không biết mật khẩu thì không biết tên file -> không xem được."""
+    mk = os.environ.get("TK_MAT_KHAU", "").strip()
+    if not mk:
+        print("(Chưa cài mật khẩu TK_MAT_KHAU nên không xuất trang Tài khoản ảo)")
+        return
+    gia = {m: d["c"][-1] for m, (d, ind) in ind_ngay.items()}
+    out = dict(asof=now.strftime("%H:%M %d/%m/%Y"), so_ma_toi_da=TAI_KHOAN["so_ma"], tk={})
+    for key, ten in CHIEN_LUOC.items():
+        tk = tk_all.get(key)
+        if not tk:
+            out["tk"][key] = dict(ten=ten, chua=True, von=TAI_KHOAN["von"])
+            continue
+        nav = tk_nav(tk, gia)
+        truoc = tk["lich_su"][-2 if da_chot and len(tk["lich_su"]) > 1 else -1]["nav"] if tk["lich_su"] else tk["von"]
+        if da_chot and len(tk["lich_su"]) == 1:
+            truoc = tk["von"]
+        ma = []
+        for m, p in tk["ma"].items():
+            g = tk_gia(tk, m, gia)
+            d = ind_ngay.get(m, (None,))[0]
+            ma.append(dict(m=m, kl=p["kl"], gv=round(p["gia_von"], 3), g=round(g, 2), gt=round(p["kl"] * g * 1000),
+                           lai=round((g / p["gia_von"] - 1) * 100, 2), lai_d=round(p["kl"] * (g - p["gia_von"]) * 1000),
+                           ngay=fmt_ngay(p["ngay"]), t=so_phien(d["t"], d["t"].index(p["ngay"])) if d and p["ngay"] in d["t"] else None,
+                           cb=p.get("cho_ban")))
+        ma.sort(key=lambda x: -x["gt"])
+        out["tk"][key] = dict(ten=ten, von=tk["von"], tien=round(tk["tien"]), nav=round(nav), bat_dau=fmt_ngay(tk["bat_dau"]),
+                              hn=round(nav - truoc), hn_pt=round((nav / truoc - 1) * 100, 2),
+                              luy_ke=round((nav / tk["von"] - 1) * 100, 2), ma=ma,
+                              lich_su=tk["lich_su"], nhat_ky=tk["nhat_ky"][-300:])
+    out["da_chot"] = da_chot
+    ten_file = "tk_" + hashlib.sha256(mk.encode("utf-8")).hexdigest()[:16] + ".json"
+    json.dump(out, open(os.path.join(SITE, ten_file), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
 
 def diem_xep_hang(vals):
@@ -711,14 +1013,25 @@ def main():
         state = {}
     da_gui = set(state.get("da_gui", []))
 
-    tabs = {CHIEN_LUOC[k]: {} for k in CHIEN_LUOC}
-    tabs[TEN_1H] = {}
+    tabs = {}
+    for k in CHIEN_LUOC:
+        tabs[CHIEN_LUOC[k]] = {}
+        tabs[TEN_1H_CL[k]] = {}
     nganh_raw = {t: {} for t in tabs}
     tin_moi = []
     os.makedirs(os.path.join(SITE, "h"), exist_ok=True)
     os.makedirs(os.path.join(SITE, "h1"), exist_ok=True)
+    cs = chi_so_deu(list(co.values()))          # chỉ số đều của tất cả các mã
+    vni = thi_truong_ok(cs)                      # bộ lọc thị trường chung
+    ds_ind = []                               # (nến ngày, chỉ báo) của từng mã -> tính Cơ hội / Rủi ro
+    ind_ngay = {}                             # mã -> (nến ngày, chỉ báo) -> tài khoản ảo
+    if LOC["ema_chi_so"] and vni:
+        print("Bộ lọc chỉ số đều hôm nay:", "cho phép MUA" if list(vni.values())[-1] else "KHÔNG mở lệnh MUA mới")
     for m, d in co.items():
-        ind = tinh_chien_luoc(d)
+        ok_ngay = loc_mua_ngay(d, vni)
+        ind = tinh_chien_luoc(d, {"supertrend": ok_ngay, "bat_day": ok_ngay})
+        ds_ind.append((d, ind))
+        ind_ngay[m] = (d, ind)
         c = d["c"]
         p, chg = c[-1], (c[-1] / c[-2] - 1) * 100 if c[-2] else 0
         r20 = (c[-1] / c[-21] - 1) * 100 if len(c) > 21 and c[-21] else 0.0   # sức mạnh 20 phiên
@@ -746,43 +1059,45 @@ def main():
         bd = ind["bd"]
         hist = dict(t=d["t"][k0:], o=cut(d["o"]), h=cut(d["h"]), l=cut(d["l"]), c=cut(c),
                     v=[int(x) for x in d["v"][k0:]], st=cut(ind["st"]), u=ind["u"][k0:],
-                    e9=cut(ind["e9"]), e21=cut(ind["e21"]), rs=cut(ind["rs"]),
-                    m20=cut(sma(c, 20)), m50=cut(sma(c, 50)), m200=cut(sma(c, 200)), bu=cut(bu), bl=cut(bl),
+                    m20=cut(sma(c, 20)), m200=cut(sma(c, 200)), bu=cut(bu), bl=cut(bl),
                     kg=cut(bd["giua"]), kt=cut(bd["tren"]), kd=cut(bd["duoi"]),
                     ct=[i - k0 for i in bd["cam_tren"] if i >= k0], cd=[i - k0 for i in bd["cam_duoi"] if i >= k0],
                     g={k: {"b": [i - k0 for i in v["b"] if i >= k0], "s": [i - k0 for i in v["s"] if i >= k0]}
                        for k, v in ind["g"].items()})
         json.dump(hist, open(os.path.join(SITE, "h", m + ".json"), "w"), separators=(",", ":"))
 
-        # ----- Bắt Đáy khung 1 giờ -----
+        # ----- Khung 1 giờ (SuperTrend + Bắt Đáy) -----
         dg = d.get("gio")
         if dg and len(dg["c"]) > 60:
-            bdg = bat_day(dg)
-            indg = dict(g={"bat_day": {"b": bdg["b"], "s": bdg["s"]}}, bd=bdg)
-            s = trang_thai_bd(dg, bdg)
-            if s:
-                tabs[TEN_1H][m] = dong_bang(p, chg, d["v"][-1], s)
-            s2 = trang_thai_nganh(dg, indg, "bat_day")
-            if s2:
-                s2.update(p=round(p, 2), c=round(chg, 2), r=round(r20, 2))
-                nganh_raw[TEN_1H][m] = s2
+            indg = tinh_chien_luoc(dg, loc_mua_gio(dg, d, ok_ngay, ind))
+            bdg = indg["bd"]
             n1 = len(dg["c"]) - 1
-            if dg["t"][-1][:10] == hom_nay:
-                for loai in ("b", "s"):
-                    if n1 in bdg[loai]:
-                        khoa = f"{dg['t'][-1]}|{m}|bat_day_1h|{loai}"
-                        if khoa not in da_gui:
-                            da_gui.add(khoa)
-                            tin_moi.append((loai, m, TEN_1H, p, chg, "bat_day", indg))
+            for key in CHIEN_LUOC:
+                ten1 = TEN_1H_CL[key]
+                s = trang_thai(dg, indg, key)
+                if s:
+                    tabs[ten1][m] = dong_bang(p, chg, d["v"][-1], s)
+                s2 = trang_thai_nganh(dg, indg, key)
+                if s2:
+                    s2.update(p=round(p, 2), c=round(chg, 2), r=round(r20, 2))
+                    nganh_raw[ten1][m] = s2
+                if dg["t"][-1][:10] == hom_nay:
+                    for loai in ("b", "s"):
+                        if n1 in indg["g"][key][loai]:
+                            khoa = f"{dg['t'][-1]}|{m}|{key}_1h|{loai}"
+                            if khoa not in da_gui:
+                                da_gui.add(khoa)
+                                tin_moi.append((loai, m, ten1, p, chg, key, indg))
             k1 = max(0, len(dg["c"]) - SO_NEN_LUU_DO_THI)
             cg = lambda a: r2(a[k1:])
             gu, gl = bollinger(dg["c"])
             hist1 = dict(t=dg["t"][k1:], o=cg(dg["o"]), h=cg(dg["h"]), l=cg(dg["l"]), c=cg(dg["c"]),
-                         v=[int(x) for x in dg["v"][k1:]],
-                         m20=cg(sma(dg["c"], 20)), m50=cg(sma(dg["c"], 50)), m200=cg(sma(dg["c"], 200)),
+                         v=[int(x) for x in dg["v"][k1:]], st=cg(indg["st"]), u=indg["u"][k1:],
+                         m20=cg(sma(dg["c"], 20)), m200=cg(sma(dg["c"], 200)),
                          bu=cg(gu), bl=cg(gl), kg=cg(bdg["giua"]), kt=cg(bdg["tren"]), kd=cg(bdg["duoi"]),
                          ct=[i - k1 for i in bdg["cam_tren"] if i >= k1], cd=[i - k1 for i in bdg["cam_duoi"] if i >= k1],
-                         g={"bat_day": {"b": [i - k1 for i in bdg["b"] if i >= k1], "s": [i - k1 for i in bdg["s"] if i >= k1]}})
+                         g={k: {"b": [i - k1 for i in v["b"] if i >= k1], "s": [i - k1 for i in v["s"] if i >= k1]}
+                            for k, v in indg["g"].items()})
             json.dump(hist1, open(os.path.join(SITE, "h1", m + ".json"), "w"), separators=(",", ":"))
 
     idx = {}
@@ -799,8 +1114,26 @@ def main():
         except Exception as e:
             print(f"{m}: lỗi tính dòng tiền ({e})")
 
-    data = dict(asof=now.strftime("%H:%M %d/%m/%Y"), idx=idx, tabs=tabs, dt=dt, nganh={t: xep_nganh(r) for t, r in nganh_raw.items()}, symbols=ds, missing=thieu,
+    if len(cs["c"]) > 1:   # hiện chỉ số đều trên đầu trang, cạnh VNINDEX / VN30
+        idx["CHỈ SỐ ĐỀU"] = [round(cs["c"][-1], 2), round((cs["c"][-1] / cs["c"][-2] - 1) * 100, 2)]
+    ch = co_hoi_rui_ro(ds_ind, cs)
+    ch["truoc"] = co_hoi_rui_ro(ds_ind, cs, lui=1).get("diem")   # phiên trước để so sánh
+    print("Cơ hội / Rủi ro:", ch)
+    data = dict(asof=now.strftime("%H:%M %d/%m/%Y"), idx=idx, tabs=tabs, dt=dt, ch=ch,
+                nganh={t: xep_nganh(r) for t, r in nganh_raw.items()}, symbols=ds, missing=thieu,
+                phien=cs["t"][-150:],   # danh sách ngày giao dịch gần nhất (trang Giao dịch thử dùng để tính T+2)
                 telegram=os.environ.get("TELEGRAM_LINK", ""))
+    # ----- Tài khoản ảo: chốt giao dịch 1 lần/phiên sau giờ đóng cửa -----
+    tk_all = state.setdefault("tai_khoan", {})
+    co_hom_nay = any(d["t"][-1] == hom_nay for d, _ in ind_ngay.values())
+    if co_hom_nay and now.hour >= TAI_KHOAN["gio_chot"] and state.get("tk_ngay") != hom_nay:
+        for key in CHIEN_LUOC:
+            tk = tk_all.setdefault(key, tk_moi(hom_nay))
+            tk_xu_ly_phien(tk, key, ind_ngay, hom_nay)
+        state["tk_ngay"] = hom_nay
+        print("Tài khoản ảo:", {k: (round(v["lich_su"][-1]["nav"]), len(v["ma"])) for k, v in tk_all.items()})
+    ghi_tai_khoan(tk_all, ind_ngay, now, state.get("tk_ngay") == hom_nay)
+
     json.dump(data, open(os.path.join(SITE, "data.json"), "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
     trang = os.path.join(ROOT, "index.html")
@@ -815,15 +1148,16 @@ def main():
             if loai == "b":
                 if key == "bat_day":
                     bd = ind["bd"]
-                    dong.append(f"\n🟢 <b>MUA {m}</b> · {ten}\nGiá {so(p)} ({'+' if chg >= 0 else ''}{so(chg)}%)"
-                                f" · T1 {so(bd['giua'][-1])} · T2 {so(bd['tren'][-1])} · Cắt lỗ {so(bd['sl'])}")
-                    continue
-                t1, t2 = p * TARGET[key][0], p * TARGET[key][1]
-                dong.append(f"\n🟢 <b>MUA {m}</b> · {ten}\nGiá {so(p)} ({'+' if chg >= 0 else ''}{so(chg)}%)"
-                            f" · T1 {so(t1)} · T2 {so(t2)}")
+                    t1, t2, sl = bd["giua"][-1], bd["tren"][-1], bd["sl"]
+                else:
+                    stt = ind["stt"]
+                    t1, t2, sl = stt["t1"], stt["t2"], stt["sl"]
+                dong.append(f"\n🟢 <b>XANH {m}</b> · {ten}\nGiá {so(p)} ({'+' if chg >= 0 else ''}{so(chg)}%)"
+                            f" · T1 {so(t1)} · T2 {so(t2)} · Cắt lỗ {so(sl)}")
             else:
-                ly = ind["bd"]["ly"].get(len(ind["bd"]["giua"]) - 1) if key == "bat_day" else None
-                dong.append(f"\n🔴 <b>BÁN {m}</b> · {ten}\nGiá {so(p)} ({'+' if chg >= 0 else ''}{so(chg)}%)"
+                nguon = ind["bd"] if key == "bat_day" else ind["stt"]
+                ly = nguon["ly"].get(len(ind["st"]) - 1)
+                dong.append(f"\n🔴 <b>HỒNG {m}</b> · {ten}\nGiá {so(p)} ({'+' if chg >= 0 else ''}{so(chg)}%)"
                             + (f"\nLý do: {ly}" if ly else ""))
         dong.append("\n<i>Tín hiệu trong phiên là tạm thời, chỉ xác nhận khi đóng cửa. Không phải khuyến nghị đầu tư.</i>")
         gui_telegram("\n".join(dong))
@@ -840,7 +1174,7 @@ def main():
         for ten, rows in tabs.items():
             mua = [m for m, r in rows.items() if r["rb"] == "MUA"]
             ban = [m for m, r in rows.items() if r["rb"] == "BÁN"]
-            dong.append(f"\n<b>{ten}</b>\n🟢 MUA: {', '.join(mua) or '—'}\n🔴 BÁN: {', '.join(ban) or '—'}")
+            dong.append(f"\n<b>{ten}</b>\n🟢 XANH: {', '.join(mua) or '—'}\n🔴 HỒNG: {', '.join(ban) or '—'}")
         gui_telegram("\n".join(dong))
         state["tong_ket"] = hom_nay
 

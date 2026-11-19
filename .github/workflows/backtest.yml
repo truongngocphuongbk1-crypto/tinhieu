@@ -1,0 +1,39 @@
+name: Backtest
+
+# Chỉ chạy khi bấm tay: tab Actions -> Backtest -> Run workflow
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backtest
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Lay code
+        uses: actions/checkout@v4
+
+      - name: Cai Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Chay backtest
+        run: python backtest.py
+
+      - name: Luu ket qua vao KET_QUA_BACKTEST.md
+        run: |
+          git config user.name "signal-bot"
+          git config user.email "signal-bot@users.noreply.github.com"
+          git add KET_QUA_BACKTEST.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Cap nhat ket qua backtest"
+            git pull --rebase
+            git push
+          fi

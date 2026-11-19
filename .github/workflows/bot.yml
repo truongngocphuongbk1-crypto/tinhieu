@@ -48,6 +48,7 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_LINK: ${{ vars.TELEGRAM_LINK }}
+          TK_MAT_KHAU: ${{ secrets.TK_MAT_KHAU }}
         run: python bot.py
 
       - name: Luu nen ngay (bo nho dem)
