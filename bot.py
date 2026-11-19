@@ -43,6 +43,19 @@ SUPERTREND = dict(
     t_min=2,          # chỉ báo cắt lỗ từ T+ này trở đi
     chi_dao_chieu=True,  # True: chỉ báo HỒNG khi SuperTrend đảo xuống (bỏ cắt lỗ 7% và về vốn sau Target 1)
 )
+# ----- CÁCH ĐẶT TARGET (cho cả SuperTrend và Bắt Đáy, cả khung ngày và khung 1 giờ) -----
+# kieu = "kenh"  : cách cũ (SuperTrend: ATR của chính khung đó; Bắt Đáy: đường giữa / dải trên, di chuyển theo kênh)
+#        "atr"   : Target = giá mua + t1_atr / t2_atr x ATR(14) của khung NGÀY
+#        "r"     : Target = giá mua + t1_r / t2_r x R   (R = giá mua - mức cắt lỗ lúc mua)
+#        "atr_r" : lấy mức CAO HƠN giữa "atr" và "r"
+# Khung 1 giờ cũng dùng ATR NGÀY, vì mua xong phải đủ T+2 mới bán được -> giữ hàng tính bằng ngày.
+TARGET = dict(
+    kieu="atr",
+    t1_atr=2, t2_atr=4,     # số lần ATR ngày
+    t1_r=1.5, t2_r=3,       # số lần R
+    t1_min=5, t2_min=10,    # Target tối thiểu (% so với giá mua)
+    theo_kenh=True,         # Bắt Đáy: Target không thấp hơn đường giữa / dải trên lúc mua
+)
 # Bắt Đáy: Target 1 = đường giữa kênh, Target 2 = dải trên (thay đổi theo kênh, không phải % cố định)
 BAT_DAY = dict(
     do_dai=50,        # độ dài đường giữa (EMA)
@@ -461,7 +474,41 @@ def gia_khop(muc, o):
     return o if o > muc else muc
 
 
-def bat_day(d, mo=None):
+def tinh_target(vao, atr_ng, sl, t1_kenh, t2_kenh):
+    """(Target 1, Target 2) lúc mua, theo TARGET['kieu']. Kiểu "kenh" trả về đúng mức theo kênh/ATR khung hiện tại."""
+    T = TARGET
+    if T["kieu"] == "kenh":
+        return t1_kenh, t2_kenh
+    a = atr_ng or 0
+    R = max(vao - sl, 0) if sl else 0
+    t1a, t2a = vao + T["t1_atr"] * a, vao + T["t2_atr"] * a
+    t1r, t2r = vao + T["t1_r"] * R, vao + T["t2_r"] * R
+    if T["kieu"] == "atr":
+        t1, t2 = t1a, t2a
+    elif T["kieu"] == "r":
+        t1, t2 = t1r, t2r
+    else:
+        t1, t2 = max(t1a, t1r), max(t2a, t2r)
+    t1 = max(t1, vao * (1 + T["t1_min"] / 100))
+    t2 = max(t2, vao * (1 + T["t2_min"] / 100))
+    return t1, max(t2, t1 * 1.02)
+
+
+def atr_ngay(d):
+    """ATR(14) của nến ngày."""
+    return rma(true_range(d["h"], d["l"], d["c"]), 14)
+
+
+def atr_ngay_cho_gio(dg, d, atr_d):
+    """Với mỗi nến 1 giờ: ATR ngày của phiên NGÀY gần nhất trước đó."""
+    out = []
+    for x in dg["t"]:
+        j = bisect.bisect_left(d["t"], x[:10]) - 1
+        out.append(atr_d[j] if j >= 0 else None)
+    return out
+
+
+def bat_day(d, mo=None, atr_ng=None):
     """Chiến lược BẮT ĐÁY: kênh xu hướng (EMA 50 ± 2,5 x ATR 50) + RSI + tam giác xác nhận.
     - Chấm cam dưới: giá chạm dải dưới và RSI <= 30 -> CHỜ MUA
     - Chấm cam trên: giá chạm dải trên và RSI >= 70 -> CHỜ BÁN
@@ -486,6 +533,8 @@ def bat_day(d, mo=None):
     i_cm = i_cb = -1
     day_vung = None
     giu, vao, i_vao, sl, tp1, da_ban, day_mua = False, None, None, None, False, [], None
+    t1 = t2 = None
+    kenh = TARGET["kieu"] == "kenh"
     for i in range(1, n):
         if tren[i] is None or r[i] is None:
             continue
@@ -514,13 +563,14 @@ def bat_day(d, mo=None):
 
         thoat, gia_ra = None, c[i]
         if giu and di[i] - di[i_vao] >= P["t_min"]:
-            if not tp1 and h[i] >= giua[i]:
+            m1, m2 = (giua[i], tren[i]) if kenh else (t1, t2)
+            if not tp1 and h[i] >= m1:
                 tp1 = True
-                da_ban.append((0.5, gia_khop(giua[i], o[i])))
+                da_ban.append((0.5, gia_khop(m1, o[i])))
                 if LOC["ve_von"]:
                     sl = max(sl, vao)
-            if h[i] >= tren[i]:
-                thoat, gia_ra = "Chạm Target 2 (dải trên) - chốt hết", gia_khop(tren[i], o[i])
+            if h[i] >= m2:
+                thoat, gia_ra = "Chạm Target 2 - chốt hết", gia_khop(m2, o[i])
             elif c[i] < sl:
                 if tp1 and LOC["ve_von"] and sl == vao:
                     thoat = "Về giá Xanh sau khi chạm Target 1"
@@ -541,11 +591,17 @@ def bat_day(d, mo=None):
             b.append(i); giu = True; vao = c[i]; i_vao = i; tp1 = False; da_ban = []
             day_mua = day_vung
             sl = max(day_vung, vao * (1 - lo))
+            t1, t2 = tinh_target(vao, (atr_ng or [None] * n)[i], sl, giua[i], tren[i])
+            if TARGET.get("theo_kenh") and not kenh:
+                t1, t2 = max(t1, giua[i]), max(t2, tren[i])
+    if giu and kenh:
+        t1, t2 = giua[-1], tren[-1]
     return dict(giua=giua, tren=tren, duoi=duoi, b=b, s=s, ly=ly, cam_tren=cam_tren, cam_duoi=cam_duoi,
-                giu=giu, vao=vao, i_vao=i_vao, sl=sl, tp1=tp1, cho_mua=cho_mua, cho_ban=cho_ban, lenh=lenh)
+                giu=giu, vao=vao, i_vao=i_vao, sl=sl, tp1=tp1, cho_mua=cho_mua, cho_ban=cho_ban, lenh=lenh,
+                t1=t1, t2=t2)
 
 
-def chay_supertrend(d, mo=None):
+def chay_supertrend(d, mo=None, atr_ng=None):
     """Chiến lược SUPERTREND (10, 3):
     - MUA: SuperTrend đảo lên (chỉ khi bộ lọc 'mo' cho phép ở nến đó)
     - Target 1 = giá mua + 2 x ATR (bán 1/3, dời cắt lỗ về giá mua), Target 2 = giá mua + 4 x ATR (bán thêm 1/3)
@@ -583,7 +639,8 @@ def chay_supertrend(d, mo=None):
             s.append(i); ly[i] = "SuperTrend đảo chiều giảm (Hồng nếu đang giữ mã này)"
         elif dao_len and not giu and atr[i] is not None and (mo is None or mo[i]):
             b.append(i); giu = True; vao = c[i]; i_vao = i; tp1 = tp2 = False; da_ban = []
-            t1, t2 = vao + P["t1_atr"] * atr[i], vao + P["t2_atr"] * atr[i]
+            t1, t2 = tinh_target(vao, (atr_ng or [None] * n)[i], st[i],
+                                 vao + P["t1_atr"] * atr[i], vao + P["t2_atr"] * atr[i])
     sl = None
     if giu:   # mức cắt lỗ hiện tại = cao nhất trong: đường SuperTrend, giá mua - 7%, (giá mua nếu đã chạm T1)
         sl = st[-1] if P["chi_dao_chieu"] else max(st[-1] or 0, vao * (1 - lo), vao if (tp1 and LOC["ve_von"]) else 0)
@@ -677,7 +734,7 @@ def trang_thai_bd(d, bd, cho_phep=True):
         i = bd["i_vao"]
         rb = "MUA" if i == n - 1 else "Giữ 1/2" if bd["tp1"] else "NẮM GIỮ"
         kq = dict(rb=rb, eq=bd["vao"], t=so_phien(t, i), d=fmt_ngay(t[i]),
-                  t1=bd["giua"][-1], t2=bd["tren"][-1], sl=bd["sl"])
+                  t1=bd["t1"], t2=bd["t2"], sl=bd["sl"])
     elif bd["s"] and bd["s"][-1] == n - 1:
         kq = dict(rb="BÁN", eq=None, t=None, d=fmt_ngay(t[-1]), ly=bd["ly"][n - 1])
     elif bd["cho_mua"] and cho_phep:
@@ -705,12 +762,15 @@ def trang_thai_st(d, stt, cho_phep=True):
     return None
 
 
-def tinh_chien_luoc(d, mo=None):
+def tinh_chien_luoc(d, mo=None, atr_ng=None):
     """Trả về chỉ báo + danh sách chỉ số nến MUA (b) / BÁN (s) cho từng chiến lược.
-    mo = {"supertrend": [True/False...], "bat_day": [...]}: nến nào được phép MUA (None = không lọc)."""
+    mo = {"supertrend": [True/False...], "bat_day": [...]}: nến nào được phép MUA (None = không lọc).
+    atr_ng = ATR NGÀY cho từng nến (để tính Target). Không truyền -> tự tính (dùng cho nến ngày)."""
     mo = mo or {}
-    stt = chay_supertrend(d, mo.get("supertrend"))
-    bd = bat_day(d, mo.get("bat_day"))
+    if atr_ng is None:
+        atr_ng = atr_ngay(d)
+    stt = chay_supertrend(d, mo.get("supertrend"), atr_ng)
+    bd = bat_day(d, mo.get("bat_day"), atr_ng)
     g = {"supertrend": {"b": stt["b"], "s": stt["s"]}, "bat_day": {"b": bd["b"], "s": bd["s"]}}
     return dict(st=stt["st"], u=stt["up"], g=g, bd=bd, stt=stt, mo=mo)
 
@@ -1071,7 +1131,7 @@ def main():
         # ----- Khung 1 giờ (SuperTrend + Bắt Đáy) -----
         dg = d.get("gio")
         if dg and len(dg["c"]) > 60:
-            indg = tinh_chien_luoc(dg, loc_mua_gio(dg, d, ok_ngay, ind))
+            indg = tinh_chien_luoc(dg, loc_mua_gio(dg, d, ok_ngay, ind), atr_ngay_cho_gio(dg, d, atr_ngay(d)))
             bdg = indg["bd"]
             n1 = len(dg["c"]) - 1
             for key in CHIEN_LUOC:
@@ -1150,7 +1210,7 @@ def main():
             if loai == "b":
                 if key == "bat_day":
                     bd = ind["bd"]
-                    t1, t2, sl = bd["giua"][-1], bd["tren"][-1], bd["sl"]
+                    t1, t2, sl = bd["t1"], bd["t2"], bd["sl"]
                 else:
                     stt = ind["stt"]
                     t1, t2, sl = stt["t1"], stt["t2"], stt["sl"]

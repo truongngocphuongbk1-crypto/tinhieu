@@ -56,6 +56,42 @@ PHUONG_AN = [
 ]
 
 
+# Các cách đặt Target đem ra so sánh (dùng cấu hình bộ lọc / quản lý lệnh hiện tại của bot)
+SO_TARGET = [
+    ("Theo kênh (cách cũ)", dict(kieu="kenh")),
+    ("ATR ngày 2/4, sàn 5/10%", dict(kieu="atr", t1_atr=2, t2_atr=4, t1_min=5, t2_min=10)),
+    ("ATR ngày 3/6, sàn 5/10%", dict(kieu="atr", t1_atr=3, t2_atr=6, t1_min=5, t2_min=10)),
+    ("R 1,5/3, sàn 5/10%", dict(kieu="r", t1_r=1.5, t2_r=3, t1_min=5, t2_min=10)),
+    ("R 2/4, sàn 5/10%", dict(kieu="r", t1_r=2, t2_r=4, t1_min=5, t2_min=10)),
+    ("ATR+R (lấy mức cao hơn), sàn 5/10%", dict(kieu="atr_r", t1_atr=2, t2_atr=4, t1_r=1.5, t2_r=3, t1_min=5, t2_min=10)),
+    ("% cố định 7/15%", dict(kieu="atr", t1_atr=0, t2_atr=0, t1_min=7, t2_min=15)),
+]
+
+
+def so_sanh_target(data, gio):
+    """Chạy từng cách đặt Target trên khung ngày và khung 1 giờ. Trả về {(tên, khung, chiến lược): thống kê}."""
+    goc = copy.deepcopy(bot.TARGET)
+    cs = bot.chi_so_deu(list(data.values()))
+    kq = {}
+    for ten, cau_hinh in SO_TARGET:
+        bot.TARGET.clear(); bot.TARGET.update(goc); bot.TARGET.update(cau_hinh)
+        vni = bot.thi_truong_ok(cs)
+        lenh = {(k, cl): [] for k in ("ngay", "gio") for cl in ("supertrend", "bat_day")}
+        for m, d in data.items():
+            ok = bot.loc_mua_ngay(d, vni)
+            ind = bot.tinh_chien_luoc(d, {"supertrend": ok, "bat_day": ok})
+            lenh[("ngay", "supertrend")] += ind["stt"]["lenh"]; lenh[("ngay", "bat_day")] += ind["bd"]["lenh"]
+            dg = gio.get(m)
+            if dg and len(dg["c"]) > 60:
+                ig = bot.tinh_chien_luoc(dg, bot.loc_mua_gio(dg, d, ok, ind), bot.atr_ngay_cho_gio(dg, d, bot.atr_ngay(d)))
+                lenh[("gio", "supertrend")] += ig["stt"]["lenh"]; lenh[("gio", "bat_day")] += ig["bd"]["lenh"]
+        for (k, cl), ds in lenh.items():
+            kq[(ten, k, cl)] = thong_ke(ds)
+        print("Xong Target:", ten)
+    bot.TARGET.clear(); bot.TARGET.update(goc)
+    return kq
+
+
 def dat_cau_hinh(thay_doi):
     cfg = dict(TAT, **thay_doi)
     bot.LOC.update(gtgd_min=cfg["gtgd_min"], ema_chi_so=cfg["ema_chi_so"],
@@ -119,6 +155,15 @@ def main():
     bot.LOC.clear(); bot.LOC.update(goc_loc)
     bot.BAT_DAY.clear(); bot.BAT_DAY.update(goc_bd)
 
+    # ----- So sánh cách đặt Target: khung ngày + khung 1 giờ (khoảng 80 ngày gần nhất) -----
+    hom_nay = datetime.now(bot.VN).strftime("%Y-%m-%d")
+    print("Tải nến 1 giờ...")
+    with ThreadPoolExecutor(8) as ex:
+        gio = dict(zip(data, ex.map(lambda m: bot._safe(bot.lich_su_1h, m, hom_nay), list(data))))
+    gio = {m: g for m, g in gio.items() if isinstance(g, dict) and len(g.get("c", [])) > 60}
+    print(f"Có nến 1 giờ của {len(gio)} mã")
+    kq_t = so_sanh_target(data, gio)
+
     # ----- Ghi kết quả -----
     out = [f"# Kết quả backtest",
            f"",
@@ -152,6 +197,22 @@ def main():
             for k, (sl, tong) in sorted(ly.items(), key=lambda z: -z[1][0]):
                 out.append(f"| {k} | {sl} | {so(tong / sl)}% |")
         out.append("")
+    out += ["# So sánh cách đặt Target", "",
+            f"Dùng cấu hình bộ lọc / quản lý lệnh hiện tại. Khung 1 giờ: {len(gio)} mã, khoảng 80 ngày gần nhất. "
+            "Xếp theo *Lãi TB/lệnh* (cao xuống thấp). *Tổng* = cộng dồn % lãi của mọi lệnh.", ""]
+    for khung, ten_k in (("ngay", "khung ngày"), ("gio", "khung 1 giờ")):
+        for key, ten_cl in bot.CHIEN_LUOC.items():
+            out += [f"## {ten_cl} ({ten_k})", "",
+                    "| Cách đặt Target | Số lệnh | Tỷ lệ thắng | Lãi TB/lệnh | Tổng | Hệ số lợi nhuận | Số phiên giữ TB |",
+                    "|---|---:|---:|---:|---:|---:|---:|"]
+            hang = sorted(SO_TARGET, key=lambda x: -((kq_t[(x[0], khung, key)] or {}).get("tb", -999)))
+            for ten, _ in hang:
+                t = kq_t[(ten, khung, key)]
+                if not t:
+                    out.append(f"| {ten} | 0 | – | – | – | – | – |"); continue
+                pf = "∞" if t["pf"] == float("inf") else so(t["pf"])
+                out.append(f"| {ten} | {t['so']} | {so(t['thang'], 1)}% | **{so(t['tb'])}%** | {so(t['tb'] * t['so'], 0)}% | {pf} | {so(t['phien'], 1)} |")
+            out.append("")
     if "--test" not in sys.argv:
         open("KET_QUA_BACKTEST.md", "w", encoding="utf-8").write("\n".join(out) + "\n")
     print("\n".join(out))
