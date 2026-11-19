@@ -226,9 +226,13 @@ function demTH(){const cur=D.tabs[tab]||{},d={"Tất cả":0,"MUA":0,"NẮM GI�
   if(r.ws!=null)d.ch++});return d}   // thứ tự nhóm trong bảng tín hiệu
 function rows(){
 $('tbw').hidden=view!=='tin';$('ngw').hidden=view!=='nganh';$('dtw').hidden=view!=='dt';$('tkw').hidden=view!=='tk';if(view==='nganh')rowsN();if(view==='dt')rowsD();if(view==='tk')rowsTK();
- const cur=D.tabs[tab]||{};
- const have=Object.keys(cur).filter(m=>cur[m].p!=null&&!/CHỜ/i.test(cur[m].rb)).sort();
- const list=have.filter(m=>(flt==="Tất cả"||(flt==="NẮM GIỮ"?/GIỮ/i.test(cur[m].rb):cur[m].rb.toUpperCase().startsWith(flt)))&&(!q||m.includes(q))).sort((a,b)=>hang(cur[a].rb)-hang(cur[b].rb));   // MUA -> BÁN -> đang nắm giữ (trong nhóm: theo chữ cái)
+ const cur0=D.tabs[tab]||{},cur=Object.assign({},cur0);
+ // Đang tìm mã: tìm trong TẤT CẢ các mã (bỏ qua nút lọc); mã không có tín hiệu vẫn hiện, ghi ĐỨNG NGOÀI / CHỜ XANH
+ if(q)(D.symbols||[]).filter(m=>m.includes(q)).forEach(m=>{const r=cur0[m];if(r&&r.p!=null&&!/CHỜ/i.test(r.rb))return;const x=(D.dt||{})[m];
+  cur[m]={p:r&&r.p!=null?r.p:(x?x[0]:null),c:r&&r.c!=null?r.c:(x?x[1]:null),v:r?r.v:null,tim:1,
+   rb:r&&/^CHỜ MUA$/i.test(r.rb)?'CHỜ MUA':'ĐỨNG NGOÀI',ly:r&&r.bn!=null?'Xanh nếu > '+nf(r.bn):r&&r.ws!=null?'Hồng nếu < '+nf(r.ws):'Chưa có tín hiệu'}});
+ const have=Object.keys(cur).filter(m=>cur[m].p!=null&&(cur[m].tim||!/CHỜ/i.test(cur[m].rb))).sort();
+ const list=have.filter(m=>q?m.includes(q):(flt==="Tất cả"||(flt==="NẮM GIỮ"?/GIỮ/i.test(cur[m].rb):cur[m].rb.toUpperCase().startsWith(flt)))).sort((a,b)=>hang(cur[a].rb)-hang(cur[b].rb));   // MUA -> BÁN -> đang nắm giữ (trong nhóm: theo chữ cái)
  {const d=demTH(),o=(n,t,c)=>`<span class="tom1 ${c}"><b>${n}</b>${t}</span>`;
   $('tom').hidden=view!=='tin';$('tom').innerHTML=o(d.MUA,'mã XANH','up')+o(d['BÁN'],'mã HỒNG','dn')+o(d['NẮM GIỮ'],'mã đang giữ','')+o(d.cx,'mã chờ XANH','w')+(TABKEY[tab]==='bat_day'?o(d.ch,'mã chờ HỒNG','w'):'')+`<small>${D.asof?'Cập nhật '+D.asof:''}</small>`}
  $('body').innerHTML=list.map((m,ix)=>{const r=cur[m],dec=r.p>1000?1:2,eq=r.eq;
@@ -236,7 +240,7 @@ $('tbw').hidden=view!=='tin';$('ngw').hidden=view!=='nganh';$('dtw').hidden=view
   const h1=/2\/3|1\/3|1\/2/.test(r.rb),h2=/1\/3/.test(r.rb);
   const f=(x,hit)=>x==null?'–':hit?`<span class="bd">${nf(x,dec)}</span>`:nf(x,dec);
   const isBuy=/^MUA$/i.test(r.rb),isSell=/^BÁN$/i.test(r.rb);return`<tr class="${isBuy?'buyrow':isSell?'sellrow':''}"><td class="ctr stt">${ix+1}</td><td class="tkc" data-m="${m}" tabindex="0">${m}</td><td class="${cls(r.c||0)}">${nf(r.p,dec)}</td><td class="${cls(r.c||0)}">${r.c==null?'–':arrow(r.c)+nf(Math.abs(r.c))+'%'}</td><td>${r.v==null?'–':nf(r.v,1)}</td><td>${eq==null?'–':isBuy?`<span class="bd">${nf(eq,dec)}</span>`:nf(eq,dec)}</td><td class="ctr"><span class="${rbClass(r.rb)}">${tx(r.rb||'–')}</span>${r.sl!=null?`<br><small>Cắt lỗ &lt; ${nf(r.sl,dec)}</small>`:''}${r.ly?`<br><small>${tx(r.ly)}</small>`:''}</td><td>${r.t==null?'–':'T+'+r.t}</td><td>${r.d||'–'}</td><td>${f(t1,h1)}</td><td>${f(t2,h2)}</td><td class="${pl==null?'':cls(pl)}">${pl==null?'–':nf(pl)+'%'}</td></tr>`}).join('')||`<tr><td colspan="12" class="empty">${have.length?'Không có mã phù hợp bộ lọc.':'Chưa có dữ liệu cho tab này.'}</td></tr>`;
- const tot=D.symbols.length,miss=D.missing||[];
+ const tot=(D.symbols||[]).length,miss=D.missing||[];
  $('ms').textContent=`Có dữ liệu: ${tot-miss.length}/${tot} mã`+(miss.length?' (bấm để xem mã còn thiếu)':'');
  $('ml').textContent=miss.join(', ');
  chBox();

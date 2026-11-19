@@ -57,3 +57,5 @@ do_dai=50, atr=50, he_so=2.5, rsi=14, qua_mua=70, qua_ban=30, cho=10, t_min=2
   +1,12%/lệnh, thắng 59%, 22 lệnh (cách cũ -0,43%/lệnh, 135 lệnh). Bắt Đáy 1 giờ giữ "A" (-0,08%/lệnh).
 - "D" (vào theo giờ, ra theo ngày) tệ nhất (-3,8%/lệnh), không dùng.
 - Giai đoạn thử là thị trường giảm (khung ngày cũng lỗ): cần chạy lại backtest sau 1–2 tháng để kiểm tra.
+- 20/11/2026: SuperTrend 1 giờ đổi sang `st="T"`: Xanh khi SuperTrend 1 giờ cắt lên, Hồng khi cắt xuống, không lọc thêm.
+  Bắt Đáy 1 giờ vẫn `bd="A"`.

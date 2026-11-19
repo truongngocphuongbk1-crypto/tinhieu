@@ -61,14 +61,16 @@ TARGET = dict(              # KHUNG NGÀY
 # KHUNG 1 GIỜ: backtest 80 ngày cho thấy Target xa hơn đều lỗ nhiều hơn -> giữ cách cũ "kenh".
 TARGET_GIO = dict(TARGET, kieu="kenh")
 # ----- CÁCH DÙNG KHUNG 1 GIỜ (riêng cho từng chiến lược: st = SuperTrend, bd = Bắt Đáy) -----
-# Mỗi chế độ ghép các chữ: "A" = như cũ
+# Mỗi chế độ ghép các chữ: "T" = TỰ DO: chỉ theo chính khung 1 giờ (SuperTrend: Xanh khi cắt lên, Hồng khi cắt xuống), không lọc gì
+#   "A" = như cũ (thanh khoản + khung ngày không ngược chiều)
 #   "B" = lọc chặt theo khung ngày (SuperTrend: ST ngày tăng + giá ngày trên MA50; Bắt Đáy: khung ngày vừa có chấm cam ≤ 10 phiên)
 #   "C" = chỉ XANH khi chính chiến lược đó ở khung NGÀY vừa báo XANH trong cua_so phiên gần nhất (khung giờ = điểm vào)
 #   "D" = vào theo khung giờ, RA theo khung ngày (chỉ xét bán ở nến cuối ngày; Target theo khung ngày)
 # Chọn theo backtest giá thật (nến 1 giờ 03/09–19/11/2026, giai đoạn thị trường giảm):
 #   SuperTrend 1 giờ: "C" ≤ 10 phiên +1,12%/lệnh (cách cũ -0,43%) - mẫu nhỏ (22 lệnh), cần theo dõi thêm.
 #   Bắt Đáy 1 giờ: giữ "A" (-0,08%/lệnh, gần hòa vốn; các chế độ khác quá ít lệnh để tin).
-GIO = dict(st="C", bd="A", cua_so=10)
+# 20/11/2026: theo yêu cầu, SuperTrend 1 giờ chuyển sang "T" (Xanh khi cắt lên, Hồng khi cắt xuống).
+GIO = dict(st="T", bd="A", cua_so=10)
 # Bắt Đáy: Target 1 = đường giữa kênh, Target 2 = dải trên (thay đổi theo kênh, không phải % cố định)
 BAT_DAY = dict(
     do_dai=50,        # độ dài đường giữa (EMA)
@@ -724,14 +726,16 @@ def loc_mua_gio(dg, d, ok_ngay, ind_ngay):
     ma50 = sma(c, 50) if "B" in cs_ + cb_ else None
     cam = ind_ngay["bd"]["cam_duoi"]
     bst, bbd = ind_ngay["stt"]["b"], ind_ngay["bd"]["b"]
+    if cs_ == "T" and cb_ == "T":
+        return {"supertrend": None, "bat_day": None}
     gan = lambda ds, j, k: bisect.bisect_right(ds, j) > bisect.bisect_right(ds, j - k)   # có phần tử trong (j-k, j]
     st_ok, bd_ok = [], []
     for x in dg["t"]:
         j = bisect.bisect_left(ngay, x[:10]) - 1
         if j < 0:
             st_ok.append(False); bd_ok.append(False); continue
-        a = ok_ngay[j] and up[j] == 1
-        b = ok_ngay[j] and (duoi[j] is None or c[j] > duoi[j])
+        a = True if "T" in cs_ else ok_ngay[j] and up[j] == 1
+        b = True if "T" in cb_ else ok_ngay[j] and (duoi[j] is None or c[j] > duoi[j])
         if "B" in cs_:
             a = a and ma50[j] is not None and c[j] > ma50[j]
         if "B" in cb_:
