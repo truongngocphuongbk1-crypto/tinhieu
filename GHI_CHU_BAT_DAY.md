@@ -27,10 +27,11 @@ do_dai=50, atr=50, he_so=2.5, rsi=14, qua_mua=70, qua_ban=30, cho=10, t_min=2
 
 ## Cập nhật 19/11/2026
 - Chỉ còn 2 chiến lược: **SuperTrend** và **Bắt Đáy**, mỗi chiến lược có Khung 1 ngày + Khung 1 giờ (đã bỏ EMA 9/21, Lướt T+).
-- Bộ lọc MUA chung (mục `LOC` đầu bot.py): giá trị giao dịch TB 20 phiên ≥ 1 tỷ; CHỈ SỐ ĐỀU (trung bình % tăng/giảm của mọi mã, mỗi mã như nhau, thay cho VNINDEX vốn bị nhóm Vin chi phối) đóng cửa trên EMA 50.
+- Bộ lọc MUA chung (mục `LOC` đầu bot.py): giá trị giao dịch TB 20 phiên ≥ 1 tỷ; CHỈ SỐ ĐỀU (trung bình % tăng/giảm của mọi mã, mỗi mã như nhau, thay cho VNINDEX vốn bị nhóm Vin chi phối) đóng cửa trên EMA 50. **Đã TẮT ngày 19/11** (`ema_chi_so=0`): thị trường xấu vẫn báo Xanh/Hồng; chỉ số đều chỉ còn dùng cho Cơ hội/Rủi ro.
 - Quản lý lệnh: cắt lỗ cứng 7%; chạm Target 1 thì dời cắt lỗ về giá mua.
 - Bắt Đáy: quá 20 phiên chưa chạm Target 1 thì bán (`qua_han`).
-- SuperTrend: Target 1/2 = giá mua + 2/4 lần ATR 14 (mục `SUPERTREND`); bảng hiện mức cắt lỗ.
+- SuperTrend: Target 1/2 = giá mua + 2/4 lần ATR 14 (mục `SUPERTREND`); bảng hiện mức cắt lỗ = đường SuperTrend.
+  HỒNG chỉ khi SuperTrend đảo xuống (`chi_dao_chieu=True`, bỏ cắt lỗ 7% và về vốn); màu mây theo đường SuperTrend.
 - Khung 1 giờ: SuperTrend 1 giờ chỉ MUA khi SuperTrend ngày đang tăng; Bắt Đáy 1 giờ chỉ MUA khi giá ngày trên dải dưới (đã chọn phương án a).
 - Backtest: tab Actions → **Backtest** → Run workflow → kết quả ở file `KET_QUA_BACKTEST.md`.
 

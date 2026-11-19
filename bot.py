@@ -28,7 +28,8 @@ TEN_1H_CL = {"supertrend": "SuperTrend (1 giờ)", "bat_day": "Bắt Đáy (1 gi
 # ----- Bộ lọc & quản lý lệnh: áp dụng cho CẢ 2 chiến lược -----
 LOC = dict(
     gtgd_min=1,       # chỉ MUA mã có giá trị giao dịch TB 20 phiên >= bấy nhiêu TỶ đồng (đặt 0 = tắt)
-    ema_chi_so=50,    # chỉ MUA khi CHỈ SỐ ĐỀU (trung bình mọi mã, mỗi mã như nhau) trên EMA bấy nhiêu phiên (0 = tắt)
+    ema_chi_so=0,     # đang TẮT (0): thị trường xấu vẫn báo Xanh/Hồng bình thường. Đặt 50 để bật lại:
+                      # chỉ MUA khi CHỈ SỐ ĐỀU (trung bình mọi mã, mỗi mã như nhau) trên EMA bấy nhiêu phiên (0 = tắt)
                       # (không dùng VNINDEX vì bị vài mã vốn hóa lớn như nhóm Vin chi phối)
     lo_toi_da=7,      # giá đóng cửa lỗ quá bấy nhiêu % so với giá mua -> BÁN (cắt lỗ cứng)
     ve_von=True,      # chạm Target 1 -> dời cắt lỗ lên bằng giá mua (True = bật, False = tắt)
@@ -40,6 +41,7 @@ SUPERTREND = dict(
     t1_atr=2,         # Target 1 = giá mua + 2 x ATR   (chạm -> bán 1/3)
     t2_atr=4,         # Target 2 = giá mua + 4 x ATR   (chạm -> bán thêm 1/3)
     t_min=2,          # chỉ báo cắt lỗ từ T+ này trở đi
+    chi_dao_chieu=True,  # True: chỉ báo HỒNG khi SuperTrend đảo xuống (bỏ cắt lỗ 7% và về vốn sau Target 1)
 )
 # Bắt Đáy: Target 1 = đường giữa kênh, Target 2 = dải trên (thay đổi theo kênh, không phải % cố định)
 BAT_DAY = dict(
@@ -547,7 +549,7 @@ def chay_supertrend(d, mo=None):
     """Chiến lược SUPERTREND (10, 3):
     - MUA: SuperTrend đảo lên (chỉ khi bộ lọc 'mo' cho phép ở nến đó)
     - Target 1 = giá mua + 2 x ATR (bán 1/3, dời cắt lỗ về giá mua), Target 2 = giá mua + 4 x ATR (bán thêm 1/3)
-    - BÁN: SuperTrend đảo xuống, hoặc (từ T+2) đóng cửa lỗ quá 7% / về giá mua sau khi chạm Target 1."""
+    - BÁN: SuperTrend đảo xuống. (Nếu SUPERTREND['chi_dao_chieu'] = False: thêm cắt lỗ 7% / về giá mua sau Target 1.)"""
     P = SUPERTREND
     o, h, l, c, t = d["o"], d["h"], d["l"], d["c"], d["t"]
     n = len(c)
@@ -571,7 +573,7 @@ def chay_supertrend(d, mo=None):
             thoat = None
             if dao_xuong:
                 thoat = "SuperTrend đảo chiều giảm"
-            elif di[i] - di[i_vao] >= P["t_min"] and c[i] < san:
+            elif not P["chi_dao_chieu"] and di[i] - di[i_vao] >= P["t_min"] and c[i] < san:
                 thoat = "Về giá Xanh sau khi chạm Target 1" if (tp1 and LOC["ve_von"]) else f"Lỗ quá {LOC['lo_toi_da']}% - cắt lỗ"
             if thoat:
                 s.append(i); ly[i] = thoat; giu = False
@@ -584,7 +586,7 @@ def chay_supertrend(d, mo=None):
             t1, t2 = vao + P["t1_atr"] * atr[i], vao + P["t2_atr"] * atr[i]
     sl = None
     if giu:   # mức cắt lỗ hiện tại = cao nhất trong: đường SuperTrend, giá mua - 7%, (giá mua nếu đã chạm T1)
-        sl = max(st[-1] or 0, vao * (1 - lo), vao if (tp1 and LOC["ve_von"]) else 0)
+        sl = st[-1] if P["chi_dao_chieu"] else max(st[-1] or 0, vao * (1 - lo), vao if (tp1 and LOC["ve_von"]) else 0)
     return dict(st=st, up=up, b=b, s=s, ly=ly, lenh=lenh, giu=giu, vao=vao, i_vao=i_vao,
                 t1=t1, t2=t2, tp1=tp1, tp2=tp2, sl=sl)
 
@@ -1059,7 +1061,7 @@ def main():
         bd = ind["bd"]
         hist = dict(t=d["t"][k0:], o=cut(d["o"]), h=cut(d["h"]), l=cut(d["l"]), c=cut(c),
                     v=[int(x) for x in d["v"][k0:]], st=cut(ind["st"]), u=ind["u"][k0:],
-                    m20=cut(sma(c, 20)), m200=cut(sma(c, 200)), bu=cut(bu), bl=cut(bl),
+                    m20=cut(sma(c, 20)), bu=cut(bu), bl=cut(bl),
                     kg=cut(bd["giua"]), kt=cut(bd["tren"]), kd=cut(bd["duoi"]),
                     ct=[i - k0 for i in bd["cam_tren"] if i >= k0], cd=[i - k0 for i in bd["cam_duoi"] if i >= k0],
                     g={k: {"b": [i - k0 for i in v["b"] if i >= k0], "s": [i - k0 for i in v["s"] if i >= k0]}
@@ -1093,7 +1095,7 @@ def main():
             gu, gl = bollinger(dg["c"])
             hist1 = dict(t=dg["t"][k1:], o=cg(dg["o"]), h=cg(dg["h"]), l=cg(dg["l"]), c=cg(dg["c"]),
                          v=[int(x) for x in dg["v"][k1:]], st=cg(indg["st"]), u=indg["u"][k1:],
-                         m20=cg(sma(dg["c"], 20)), m200=cg(sma(dg["c"], 200)),
+                         m20=cg(sma(dg["c"], 20)),
                          bu=cg(gu), bl=cg(gl), kg=cg(bdg["giua"]), kt=cg(bdg["tren"]), kd=cg(bdg["duoi"]),
                          ct=[i - k1 for i in bdg["cam_tren"] if i >= k1], cd=[i - k1 for i in bdg["cam_duoi"] if i >= k1],
                          g={k: {"b": [i - k1 for i in v["b"] if i >= k1], "s": [i - k1 for i in v["s"] if i >= k1]}

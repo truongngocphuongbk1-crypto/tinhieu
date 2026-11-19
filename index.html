@@ -167,7 +167,7 @@ td small{color:var(--mut)}
 <div class="ov" id="ov"><div class="md" role="dialog" aria-modal="true" aria-labelledby="mt">
   <div class="mh"><h3 id="mt"></h3><span id="mi"></span>
     <span class="rng"><button type="button" data-n="30">30 phiên</button><button type="button" data-n="60" class="on">60</button><button type="button" data-n="90">90</button><button type="button" data-n="130">6 tháng</button></span>
-    <button type="button" class="cld on" id="cld" aria-pressed="true">Bollinger &amp; MA200</button>
+    <button type="button" class="cld on" id="cld" aria-pressed="true">Bollinger</button>
     <button type="button" class="mx" id="mxb" aria-label="Đóng đồ thị">✕ Đóng</button></div>
   <div class="mq" id="mq"></div>
   <div class="mq" id="sg"></div>
@@ -528,7 +528,7 @@ function tag(ctx,x,y,text,bg,lim){
  ctx.fillStyle=bg;ctx.beginPath();
  if(ctx.roundRect)ctx.roundRect(cx-w/2,cy-hh/2,w,hh,4);else ctx.rect(cx-w/2,cy-hh/2,w,hh);
  ctx.fill();ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,cx,cy+.5)}
-const MAC={m200:'#a855f7'};   // chỉ vẽ MA200 (đã bỏ MA20, MA50 cho đồ thị gọn)
+// Đã bỏ các đường MA20, MA50, MA200 cho đồ thị gọn (chỉ còn dải Bollinger)
 function drawChart(){
  if(!cm)return;
  const cur=(D.tabs[tab]||{})[cm]||{};
@@ -548,13 +548,15 @@ function drawChart(){
  if(key==='supertrend'){lines.push({a:sl(h.st),u:sl(h.u)});legend=[[cUp,'SuperTrend, xu hướng tăng','SuperTrend'],[cDn,'SuperTrend, xu hướng giảm','SuperTrend']]}
  else if(key==='bat_day'){const kc='#14b8a6',km='rgba(20,184,166,.5)';lines.push({a:sl(h.kt||[]),c:kc},{a:sl(h.kg||[]),c:km},{a:sl(h.kd||[]),c:kc});legend=[[kc,'Dải trên (Target 2)','Dải trên'],[km,'Đường giữa (Target 1)','Đường giữa'],[kc,'Dải dưới','Dải dưới']]}
  let lo=Math.min(...L),hi=Math.max(...Hh);const pLo=lo,pHi=hi;
- const M20=sl(h.m20),M200=sl(h.m200);let CHN=null;   // M20 chỉ dùng làm đường giữa dải Bollinger, không vẽ riêng
+ const M20=sl(h.m20);let CHN=null;   // M20 chỉ dùng làm đường giữa dải Bollinger, không vẽ riêng
  if(showCloud){CHN={m:M20,u:sl(h.bu),d:sl(h.bl)};
   if(key!=='bat_day'){CHN.u.forEach(v=>{if(v!=null)hi=Math.max(hi,v)});CHN.d.forEach(v=>{if(v!=null)lo=Math.min(lo,v)})}
-  [M200].forEach(a=>a.forEach(v=>{if(v!=null&&v>=pLo*.8&&v<=pHi*1.2){lo=Math.min(lo,v);hi=Math.max(hi,v)}}))}
+  }
  const gg=h.g&&h.g[key],ev0=[];
  if(gg){gg.b.forEach(q=>ev0.push([q,1]));gg.s.forEach(q=>ev0.push([q,-1]));ev0.sort((p,q)=>p[0]-q[0])}
  const stt=[];{let s=0,e=0;for(let i=0;i<k;i++){while(e<ev0.length&&ev0[e][0]<=i0+i){s=ev0[e][1];e++}stt.push(s)}}
+ // Tab SuperTrend: màu mây đi theo đường SuperTrend (xanh = xu hướng tăng, hồng = xu hướng giảm), kể cả đoạn quá khứ
+ if(key==='supertrend'&&h.u){for(let i=0;i<k;i++){const v=h.u[i0+i];stt[i]=v===1?1:v===0?-1:stt[i]}}
  lines.forEach(o=>o.a.forEach(v=>{if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}}));
  const pad=(hi-lo)*.06||1;lo-=pad;hi+=pad;
  const plotH=H-CPT-CPB-CGAP,ph=Math.round(plotH*.76),vh=plotH-ph;
@@ -571,8 +573,6 @@ function drawChart(){
    ctx.fillStyle=fc(s);ctx.beginPath();ctx.moveTo(X(i),Y(u0));ctx.lineTo(X(i+1),Y(u1));ctx.lineTo(X(i+1),Y(d1));ctx.lineTo(X(i),Y(d0));ctx.closePath();ctx.fill();
    ctx.strokeStyle=lc(s);ctx.lineWidth=1.5;
    [[u0,u1],[d0,d1]].forEach(([p,q])=>{ctx.beginPath();ctx.moveTo(X(i),Y(p));ctx.lineTo(X(i+1),Y(q));ctx.stroke()})}
-  [[M200,MAC.m200,1.8]].forEach(([a,c,w])=>{ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();let on=false;
-   for(let i=0;i<k;i++){if(a[i]==null){on=false;continue}if(on)ctx.lineTo(X(i),Y(a[i]));else{ctx.moveTo(X(i),Y(a[i]));on=true}}ctx.stroke()});
   ctx.restore()}
  ctx.textAlign='center';ctx.fillStyle=cMut;
  const step=Math.max(1,Math.ceil(k/6));
@@ -602,7 +602,7 @@ function drawChart(){
  if(hx!=null&&hx<k){ctx.strokeStyle=cMut;ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(Math.round(X(hx))+.5,CPT);ctx.lineTo(Math.round(X(hx))+.5,CPT+ph+CGAP+vh);ctx.stroke();ctx.setLineDash([])}
  const j=hx!=null&&hx<k?hx:k-1,ch=j>0?(C[j]/C[j-1]-1)*100:null;
  const ex=lines.map((o,ix)=>o.a[j]==null?'':` · ${legend[o.u?0:ix][2]} <b>${nf(o.a[j])}</b>`).join('');
- const mvs=[['MA200',M200]].map(([nm,a])=>a[j]==null?'':` · ${nm} <b>${nf(a[j])}</b>`).join('');
+ const mvs='';
  $('mq').innerHTML=`<b>${fdl(T[j])}</b> · Mở <b>${nf(O[j])}</b> Cao <b>${nf(Hh[j])}</b> Thấp <b>${nf(L[j])}</b> Đóng <b class="${cls(ch||0)}">${nf(C[j])}</b>${ch==null?'':` <span class="${cls(ch)}">${arrow(ch)}${nf(Math.abs(ch))}%</span>`} · KL <b>${nf(V[j]/1000,0)}</b> nghìn${ex}${mvs}`;
  let sg='';
  if(gg){
@@ -612,7 +612,7 @@ function drawChart(){
   else sg=`Chưa có tín hiệu trong ${n} phiên gần nhất`}
  if(CHN&&CHN.u[k-1]!=null){const c=C[k-1],u=CHN.u[k-1],d=CHN.d[k-1],pb=(c-d)/(u-d)*100,pos=c>=u?'chạm/vượt dải trên':c<=d?'chạm/thủng dải dưới':c>=CHN.m[k-1]?'nửa trên dải':'nửa dưới dải',cl=c>=CHN.m[k-1]?'up':'dn';sg+=(sg?' · ':'')+`Giá đang <b class="${cl}">${pos}</b> (%B ${nf(pb,0)}%)`}
  $('sg').innerHTML=sg;
- $('lg').innerHTML=legend.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')+(gg?`<span><em style="color:${cUp}">▲</em>XANH</span><span><em style="color:${cDn}">▼</em>HỒNG</span>`:'')+(key==='bat_day'?'<span><em style="color:#f59e0b">●</em>Cảnh báo (chạm dải + RSI)</span>':'')+(CHN?(key==='bat_day'?'':`<span><i style="height:9px;width:18px;background:linear-gradient(90deg,rgba(34,197,94,.6),rgba(244,114,182,.7))"></i>Dải Bollinger (20, 2): nền xanh = đang XANH, hồng = đang HỒNG</span>`)+`<span><i style="background:${MAC.m200}"></i>MA200</span>`:'')+'<span>Nến xanh: đóng cửa ≥ mở cửa</span>';
+ $('lg').innerHTML=legend.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')+(gg?`<span><em style="color:${cUp}">▲</em>XANH</span><span><em style="color:${cDn}">▼</em>HỒNG</span>`:'')+(key==='bat_day'?'<span><em style="color:#f59e0b">●</em>Cảnh báo (chạm dải + RSI)</span>':'')+(CHN?(key==='bat_day'?'':`<span><i style="height:9px;width:18px;background:linear-gradient(90deg,rgba(34,197,94,.6),rgba(244,114,182,.7))"></i>Dải Bollinger (20, 2): ${key==='supertrend'?'nền xanh = SuperTrend tăng, hồng = SuperTrend giảm':'nền xanh = đang XANH, hồng = đang HỒNG'}</span>`):'')+'<span>Nến xanh: đóng cửa ≥ mở cửa</span>';
 }
 function hover(e){
  if(!cm||!hcur)return;

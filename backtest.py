@@ -48,7 +48,7 @@ MOI = dict(gtgd_min=bot.LOC["gtgd_min"], ema_chi_so=bot.LOC["ema_chi_so"], lo_to
 PHUONG_AN = [
     ("Bản cũ (không lọc, không quản lý lệnh)", {}),
     (f"+ Lọc thanh khoản ≥ {MOI['gtgd_min']} tỷ", dict(gtgd_min=MOI["gtgd_min"])),
-    (f"+ Lọc chỉ số đều trên EMA {MOI['ema_chi_so']}", dict(ema_chi_so=MOI["ema_chi_so"])),
+    ("+ Lọc chỉ số đều trên EMA 50", dict(ema_chi_so=50)),
     (f"+ Cắt lỗ tối đa {MOI['lo_toi_da']}%", dict(lo_toi_da=MOI["lo_toi_da"])),
     ("+ Dời cắt lỗ về giá mua sau Target 1", dict(ve_von=True)),
     (f"+ Quá {MOI['qua_han']} phiên chưa tới T1 thì bán (Bắt Đáy)", dict(qua_han=MOI["qua_han"])),
