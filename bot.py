@@ -60,12 +60,15 @@ TARGET = dict(              # KHUNG NGÀY
 )
 # KHUNG 1 GIỜ: backtest 80 ngày cho thấy Target xa hơn đều lỗ nhiều hơn -> giữ cách cũ "kenh".
 TARGET_GIO = dict(TARGET, kieu="kenh")
-# ----- CÁCH DÙNG KHUNG 1 GIỜ -----
-# che_do ghép các chữ: "A" = như cũ
+# ----- CÁCH DÙNG KHUNG 1 GIỜ (riêng cho từng chiến lược: st = SuperTrend, bd = Bắt Đáy) -----
+# Mỗi chế độ ghép các chữ: "A" = như cũ
 #   "B" = lọc chặt theo khung ngày (SuperTrend: ST ngày tăng + giá ngày trên MA50; Bắt Đáy: khung ngày vừa có chấm cam ≤ 10 phiên)
 #   "C" = chỉ XANH khi chính chiến lược đó ở khung NGÀY vừa báo XANH trong cua_so phiên gần nhất (khung giờ = điểm vào)
 #   "D" = vào theo khung giờ, RA theo khung ngày (chỉ xét bán ở nến cuối ngày; Target theo khung ngày)
-GIO = dict(che_do="A", cua_so=5)
+# Chọn theo backtest giá thật (nến 1 giờ 03/09–19/11/2026, giai đoạn thị trường giảm):
+#   SuperTrend 1 giờ: "C" ≤ 10 phiên +1,12%/lệnh (cách cũ -0,43%) - mẫu nhỏ (22 lệnh), cần theo dõi thêm.
+#   Bắt Đáy 1 giờ: giữ "A" (-0,08%/lệnh, gần hòa vốn; các chế độ khác quá ít lệnh để tin).
+GIO = dict(st="C", bd="A", cua_so=10)
 # Bắt Đáy: Target 1 = đường giữa kênh, Target 2 = dải trên (thay đổi theo kênh, không phải % cố định)
 BAT_DAY = dict(
     do_dai=50,        # độ dài đường giữa (EMA)
@@ -717,8 +720,8 @@ def loc_mua_gio(dg, d, ok_ngay, ind_ngay):
     - Bắt Đáy 1 giờ: giá ngày đóng cửa trên dải dưới của kênh ngày (khung ngày không còn rơi)
     + thêm điều kiện theo GIO['che_do'] (B, C)."""
     ngay, duoi, up, c = d["t"], ind_ngay["bd"]["duoi"], ind_ngay["u"], d["c"]
-    che, w = GIO["che_do"], GIO["cua_so"]
-    ma50 = sma(c, 50) if "B" in che else None
+    cs_, cb_, w = GIO["st"], GIO["bd"], GIO["cua_so"]
+    ma50 = sma(c, 50) if "B" in cs_ + cb_ else None
     cam = ind_ngay["bd"]["cam_duoi"]
     bst, bbd = ind_ngay["stt"]["b"], ind_ngay["bd"]["b"]
     gan = lambda ds, j, k: bisect.bisect_right(ds, j) > bisect.bisect_right(ds, j - k)   # có phần tử trong (j-k, j]
@@ -729,11 +732,13 @@ def loc_mua_gio(dg, d, ok_ngay, ind_ngay):
             st_ok.append(False); bd_ok.append(False); continue
         a = ok_ngay[j] and up[j] == 1
         b = ok_ngay[j] and (duoi[j] is None or c[j] > duoi[j])
-        if "B" in che:
+        if "B" in cs_:
             a = a and ma50[j] is not None and c[j] > ma50[j]
+        if "B" in cb_:
             b = b and gan(cam, j, 10)
-        if "C" in che:
+        if "C" in cs_:
             a = a and gan(bst, j, w)
+        if "C" in cb_:
             b = b and gan(bbd, j, w)
         st_ok.append(a); bd_ok.append(b)
     return {"supertrend": st_ok, "bat_day": bd_ok}
@@ -814,10 +819,18 @@ def tinh_chien_luoc(d, mo=None, atr_ng=None, tg=None, ra=None):
 
 
 def tinh_chien_luoc_gio(dg, d, ok_ngay, ind):
-    """Khung 1 giờ theo GIO['che_do'] (D: ra theo khung ngày + Target khung ngày)."""
-    D_ = "D" in GIO["che_do"]
-    return tinh_chien_luoc(dg, loc_mua_gio(dg, d, ok_ngay, ind), atr_ngay_cho_gio(dg, d, atr_ngay(d)),
-                           TARGET if D_ else TARGET_GIO, ra_theo_ngay(dg, d, ind) if D_ else None)
+    """Khung 1 giờ theo GIO (chế độ D: ra theo khung ngày + Target khung ngày)."""
+    mo, atr = loc_mua_gio(dg, d, ok_ngay, ind), atr_ngay_cho_gio(dg, d, atr_ngay(d))
+    ds, db = "D" in GIO["st"], "D" in GIO["bd"]
+    if not ds and not db:
+        return tinh_chien_luoc(dg, mo, atr, TARGET_GIO)
+    ra = ra_theo_ngay(dg, d, ind)
+    a = tinh_chien_luoc(dg, mo, atr, TARGET if ds else TARGET_GIO, ra if ds else None)
+    if ds == db:
+        return a
+    b = tinh_chien_luoc(dg, mo, atr, TARGET if db else TARGET_GIO, ra if db else None)
+    a["bd"], a["g"]["bat_day"] = b["bd"], b["g"]["bat_day"]
+    return a
 
 
 def trang_thai(d, ind, key):

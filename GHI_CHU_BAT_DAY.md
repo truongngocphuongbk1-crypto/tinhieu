@@ -51,3 +51,9 @@ do_dai=50, atr=50, he_so=2.5, rsi=14, qua_mua=70, qua_ban=30, cho=10, t_min=2
   Backtest 3 năm: SuperTrend +1,72%/lệnh (cách cũ +1,10%), Bắt Đáy +1,71%/lệnh (cách cũ +1,25%).
 - Khung 1 giờ: `TARGET_GIO` giữ cách cũ "kenh" (80 ngày gần nhất mọi cách đều lỗ, cách cũ lỗ ít nhất).
 - Chi tiết: file KET_QUA_BACKTEST.md.
+
+## Khung 1 giờ (cập nhật 20/11/2026, chọn theo backtest giá thật 03/09–19/11/2026)
+- `GIO` trong bot.py: SuperTrend 1 giờ = "C" (chỉ XANH khi SuperTrend NGÀY vừa báo XANH trong 10 phiên gần nhất):
+  +1,12%/lệnh, thắng 59%, 22 lệnh (cách cũ -0,43%/lệnh, 135 lệnh). Bắt Đáy 1 giờ giữ "A" (-0,08%/lệnh).
+- "D" (vào theo giờ, ra theo ngày) tệ nhất (-3,8%/lệnh), không dùng.
+- Giai đoạn thử là thị trường giảm (khung ngày cũng lỗ): cần chạy lại backtest sau 1–2 tháng để kiểm tra.

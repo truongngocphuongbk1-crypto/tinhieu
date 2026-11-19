@@ -118,7 +118,8 @@ def so_sanh_gio(data, gio):
         ds = [x for m in data for x in ind_ngay[m][nguon]["lenh"] if x["ngay_mua"] >= tu and m in gio]
         kq[("Tham chiếu: khung NGÀY cùng thời gian", cl)] = thong_ke(ds)
     for ten, cau_hinh in SO_GIO:
-        bot.GIO.clear(); bot.GIO.update(goc); bot.GIO.update(cau_hinh)
+        bot.GIO.clear(); bot.GIO.update(goc)
+        bot.GIO.update(st=cau_hinh["che_do"], bd=cau_hinh["che_do"], cua_so=cau_hinh.get("cua_so", 5))
         lenh = {"supertrend": [], "bat_day": []}
         for m, dg in gio.items():
             if m not in ngay:
