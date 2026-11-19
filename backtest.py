@@ -83,7 +83,7 @@ def so_sanh_target(data, gio):
             lenh[("ngay", "supertrend")] += ind["stt"]["lenh"]; lenh[("ngay", "bat_day")] += ind["bd"]["lenh"]
             dg = gio.get(m)
             if dg and len(dg["c"]) > 60:
-                ig = bot.tinh_chien_luoc(dg, bot.loc_mua_gio(dg, d, ok, ind), bot.atr_ngay_cho_gio(dg, d, bot.atr_ngay(d)))
+                ig = bot.tinh_chien_luoc(dg, bot.loc_mua_gio(dg, d, ok, ind), bot.atr_ngay_cho_gio(dg, d, bot.atr_ngay(d)), bot.TARGET)
                 lenh[("gio", "supertrend")] += ig["stt"]["lenh"]; lenh[("gio", "bat_day")] += ig["bd"]["lenh"]
         for (k, cl), ds in lenh.items():
             kq[(ten, k, cl)] = thong_ke(ds)

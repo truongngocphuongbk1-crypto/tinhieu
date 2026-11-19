@@ -48,14 +48,18 @@ SUPERTREND = dict(
 #        "atr"   : Target = giá mua + t1_atr / t2_atr x ATR(14) của khung NGÀY
 #        "r"     : Target = giá mua + t1_r / t2_r x R   (R = giá mua - mức cắt lỗ lúc mua)
 #        "atr_r" : lấy mức CAO HƠN giữa "atr" và "r"
-# Khung 1 giờ cũng dùng ATR NGÀY, vì mua xong phải đủ T+2 mới bán được -> giữ hàng tính bằng ngày.
-TARGET = dict(
-    kieu="atr",
+# (ATR luôn lấy của khung NGÀY, vì mua xong phải đủ T+2 mới bán được -> giữ hàng tính bằng ngày.)
+# Chọn theo backtest giá thật 3 năm (19/11/2026): "r" 2/4 sàn 5/10% tốt nhất ở khung ngày cho cả 2 chiến lược
+#   (SuperTrend +1,72%/lệnh so với +1,10% cách cũ; Bắt Đáy +1,71% so với +1,25%).
+TARGET = dict(              # KHUNG NGÀY
+    kieu="r",
     t1_atr=2, t2_atr=4,     # số lần ATR ngày
-    t1_r=1.5, t2_r=3,       # số lần R
+    t1_r=2, t2_r=4,         # số lần R
     t1_min=5, t2_min=10,    # Target tối thiểu (% so với giá mua)
     theo_kenh=True,         # Bắt Đáy: Target không thấp hơn đường giữa / dải trên lúc mua
 )
+# KHUNG 1 GIỜ: backtest 80 ngày cho thấy Target xa hơn đều lỗ nhiều hơn -> giữ cách cũ "kenh".
+TARGET_GIO = dict(TARGET, kieu="kenh")
 # Bắt Đáy: Target 1 = đường giữa kênh, Target 2 = dải trên (thay đổi theo kênh, không phải % cố định)
 BAT_DAY = dict(
     do_dai=50,        # độ dài đường giữa (EMA)
@@ -474,9 +478,9 @@ def gia_khop(muc, o):
     return o if o > muc else muc
 
 
-def tinh_target(vao, atr_ng, sl, t1_kenh, t2_kenh):
-    """(Target 1, Target 2) lúc mua, theo TARGET['kieu']. Kiểu "kenh" trả về đúng mức theo kênh/ATR khung hiện tại."""
-    T = TARGET
+def tinh_target(vao, atr_ng, sl, t1_kenh, t2_kenh, T=None):
+    """(Target 1, Target 2) lúc mua, theo T['kieu'] (mặc định TARGET khung ngày). "kenh" = mức theo kênh/ATR khung hiện tại."""
+    T = T or TARGET
     if T["kieu"] == "kenh":
         return t1_kenh, t2_kenh
     a = atr_ng or 0
@@ -508,7 +512,7 @@ def atr_ngay_cho_gio(dg, d, atr_d):
     return out
 
 
-def bat_day(d, mo=None, atr_ng=None):
+def bat_day(d, mo=None, atr_ng=None, tg=None):
     """Chiến lược BẮT ĐÁY: kênh xu hướng (EMA 50 ± 2,5 x ATR 50) + RSI + tam giác xác nhận.
     - Chấm cam dưới: giá chạm dải dưới và RSI <= 30 -> CHỜ MUA
     - Chấm cam trên: giá chạm dải trên và RSI >= 70 -> CHỜ BÁN
@@ -534,7 +538,8 @@ def bat_day(d, mo=None, atr_ng=None):
     day_vung = None
     giu, vao, i_vao, sl, tp1, da_ban, day_mua = False, None, None, None, False, [], None
     t1 = t2 = None
-    kenh = TARGET["kieu"] == "kenh"
+    tg = tg or TARGET
+    kenh = tg["kieu"] == "kenh"
     for i in range(1, n):
         if tren[i] is None or r[i] is None:
             continue
@@ -591,8 +596,8 @@ def bat_day(d, mo=None, atr_ng=None):
             b.append(i); giu = True; vao = c[i]; i_vao = i; tp1 = False; da_ban = []
             day_mua = day_vung
             sl = max(day_vung, vao * (1 - lo))
-            t1, t2 = tinh_target(vao, (atr_ng or [None] * n)[i], sl, giua[i], tren[i])
-            if TARGET.get("theo_kenh") and not kenh:
+            t1, t2 = tinh_target(vao, (atr_ng or [None] * n)[i], sl, giua[i], tren[i], tg)
+            if tg.get("theo_kenh") and not kenh:
                 t1, t2 = max(t1, giua[i]), max(t2, tren[i])
     if giu and kenh:
         t1, t2 = giua[-1], tren[-1]
@@ -601,7 +606,7 @@ def bat_day(d, mo=None, atr_ng=None):
                 t1=t1, t2=t2)
 
 
-def chay_supertrend(d, mo=None, atr_ng=None):
+def chay_supertrend(d, mo=None, atr_ng=None, tg=None):
     """Chiến lược SUPERTREND (10, 3):
     - MUA: SuperTrend đảo lên (chỉ khi bộ lọc 'mo' cho phép ở nến đó)
     - Target 1 = giá mua + 2 x ATR (bán 1/3, dời cắt lỗ về giá mua), Target 2 = giá mua + 4 x ATR (bán thêm 1/3)
@@ -640,7 +645,7 @@ def chay_supertrend(d, mo=None, atr_ng=None):
         elif dao_len and not giu and atr[i] is not None and (mo is None or mo[i]):
             b.append(i); giu = True; vao = c[i]; i_vao = i; tp1 = tp2 = False; da_ban = []
             t1, t2 = tinh_target(vao, (atr_ng or [None] * n)[i], st[i],
-                                 vao + P["t1_atr"] * atr[i], vao + P["t2_atr"] * atr[i])
+                                 vao + P["t1_atr"] * atr[i], vao + P["t2_atr"] * atr[i], tg)
     sl = None
     if giu:   # mức cắt lỗ hiện tại = cao nhất trong: đường SuperTrend, giá mua - 7%, (giá mua nếu đã chạm T1)
         sl = st[-1] if P["chi_dao_chieu"] else max(st[-1] or 0, vao * (1 - lo), vao if (tp1 and LOC["ve_von"]) else 0)
@@ -762,15 +767,15 @@ def trang_thai_st(d, stt, cho_phep=True):
     return None
 
 
-def tinh_chien_luoc(d, mo=None, atr_ng=None):
+def tinh_chien_luoc(d, mo=None, atr_ng=None, tg=None):
     """Trả về chỉ báo + danh sách chỉ số nến MUA (b) / BÁN (s) cho từng chiến lược.
     mo = {"supertrend": [True/False...], "bat_day": [...]}: nến nào được phép MUA (None = không lọc).
     atr_ng = ATR NGÀY cho từng nến (để tính Target). Không truyền -> tự tính (dùng cho nến ngày)."""
     mo = mo or {}
     if atr_ng is None:
         atr_ng = atr_ngay(d)
-    stt = chay_supertrend(d, mo.get("supertrend"), atr_ng)
-    bd = bat_day(d, mo.get("bat_day"), atr_ng)
+    stt = chay_supertrend(d, mo.get("supertrend"), atr_ng, tg)
+    bd = bat_day(d, mo.get("bat_day"), atr_ng, tg)
     g = {"supertrend": {"b": stt["b"], "s": stt["s"]}, "bat_day": {"b": bd["b"], "s": bd["s"]}}
     return dict(st=stt["st"], u=stt["up"], g=g, bd=bd, stt=stt, mo=mo)
 
@@ -1131,7 +1136,7 @@ def main():
         # ----- Khung 1 giờ (SuperTrend + Bắt Đáy) -----
         dg = d.get("gio")
         if dg and len(dg["c"]) > 60:
-            indg = tinh_chien_luoc(dg, loc_mua_gio(dg, d, ok_ngay, ind), atr_ngay_cho_gio(dg, d, atr_ngay(d)))
+            indg = tinh_chien_luoc(dg, loc_mua_gio(dg, d, ok_ngay, ind), atr_ngay_cho_gio(dg, d, atr_ngay(d)), TARGET_GIO)
             bdg = indg["bd"]
             n1 = len(dg["c"]) - 1
             for key in CHIEN_LUOC:

@@ -44,3 +44,10 @@ do_dai=50, atr=50, he_so=2.5, rsi=14, qua_mua=70, qua_ban=30, cho=10, t_min=2
   - Phí 0,15%/lệnh, thuế bán 0,1%, lô 100, bán được từ T+2. Có bảng lãi/lỗ theo từng phiên.
 - **Tài khoản bot tự động**: 2 tài khoản (SuperTrend, Bắt Đáy), mỗi tk 1 tỷ, tối đa 10 mã, bot tự mua/bán theo tín hiệu
   khung ngày sau 15h mỗi phiên (mục `TAI_KHOAN` đầu bot.py). Xem bằng mật khẩu = GitHub secret `TK_MAT_KHAU`.
+
+## Cách đặt Target (cập nhật 19/11/2026, chọn theo backtest giá thật)
+- Khung ngày: `TARGET` kiểu "r": T1 = giá mua + 2R, T2 = giá mua + 4R (R = giá mua - mức cắt lỗ lúc mua),
+  tối thiểu +5% / +10%; Bắt Đáy không thấp hơn đường giữa / dải trên.
+  Backtest 3 năm: SuperTrend +1,72%/lệnh (cách cũ +1,10%), Bắt Đáy +1,71%/lệnh (cách cũ +1,25%).
+- Khung 1 giờ: `TARGET_GIO` giữ cách cũ "kenh" (80 ngày gần nhất mọi cách đều lỗ, cách cũ lỗ ít nhất).
+- Chi tiết: file KET_QUA_BACKTEST.md.
