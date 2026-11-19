@@ -17,6 +17,9 @@ body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-app
 /* Các khung phụ nằm DƯỚI bảng giá, xếp thành hàng ngang; màn hình hẹp tự xuống dòng */
 .side{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px;align-items:start}
 .side>.pn{margin-bottom:0}
+.tom{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}.tom1{border:1px solid var(--bd);border-radius:999px;padding:4px 12px;font-size:13px}
+.tom1 b{font-size:16px;margin-right:5px}.tom1.up b{color:var(--up)}.tom1.dn b{color:var(--dn)}.tom1.w b{color:var(--hd)}.tom small{color:var(--mut);margin-left:auto}td.stt{color:var(--mut);width:40px;font-weight:400;text-align:center}
+#tbw th:nth-child(2),#tbw td:nth-child(2){text-align:left;padding-left:14px;font-weight:700}#tbw th:first-child{text-align:center}
 .tkhd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .tkcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px}
 .tkcards .tkc{border:1px solid var(--bd);border-radius:10px;padding:12px}.tkcards small{color:var(--mut);display:block}
@@ -48,7 +51,7 @@ th:first-child,td:first-child{text-align:left;padding-left:14px;font-weight:700}
 .up{color:var(--up)}.dn{color:var(--dn)}.fl{color:var(--rf)}
 .bd{display:inline-block;padding:1px 9px;border-radius:4px;background:var(--up);color:#fff}
 .rb{display:inline-block;min-width:76px;text-align:center;padding:1px 8px;border-radius:4px;font-size:13px}
-.rb.buy{background:var(--up);color:#fff;font-weight:700}.buyrow td{background:rgba(34,197,94,.16)}.buyrow td:first-child{background:var(--up);color:#fff}.rb.sell{background:var(--dn);color:#fff;font-weight:700}.rb.hold{color:var(--mut)}
+.rb.buy{background:var(--up);color:#fff;font-weight:700}.buyrow td{background:rgba(34,197,94,.16)}.buyrow td.tkc{background:var(--up);color:#fff}.rb.sell{background:var(--dn);color:#fff;font-weight:700}.rb.hold{color:var(--mut)}
 .ctr{text-align:center}
 h2{text-align:center;font-weight:500;font-size:22px;margin:4px 0 12px}
 .pc{text-align:center;margin-bottom:10px;font-size:15px}.pc b{font-size:26px}
@@ -92,7 +95,7 @@ td.tkc:hover,td.tkc:focus-visible{text-decoration-style:solid;outline:none}
 .xg{color:var(--up);font-weight:600}.hg{color:#f472b6;font-weight:600}
 .lb{display:inline-block;min-width:64px;text-align:center;padding:2px 8px;border-radius:4px;font-weight:800;color:#fff}
 .lb.mua{background:var(--up)}.lb.ban{background:var(--dn);box-shadow:0 0 0 2px rgba(239,68,68,.35)}
-.sellrow td{background:rgba(239,68,68,.16)}.sellrow td:first-child{background:var(--dn);color:#fff}
+.sellrow td{background:rgba(239,68,68,.16)}.sellrow td.tkc{background:var(--dn);color:#fff}
 .dt{color:var(--up);letter-spacing:1px;font-size:11px}.dt i{font-style:normal;color:var(--bd)}
 td small{color:var(--mut)}
 .dtl{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;font-size:13px;margin:4px 0 8px}
@@ -117,8 +120,9 @@ td small{color:var(--mut)}
 <div class="tabs" id="tabs"></div>
       <div class="vw" id="kh" hidden></div>
       <div class="flt" id="flt"></div>
+      <div id="tom" class="tom"></div>
       <div class="tw" id="tbw"><table><thead><tr>
-        <th>Mã CK</th><th>Giá H.tại</th><th>Thay đổi</th><th>Khối lượng</th><th>Giá Xanh / ĐCB</th><th class="ctr">ROBOT</th><th>T+</th><th>Ngày Xanh</th><th>Target 1</th><th>Target 2</th><th>Lãi/Lỗ</th>
+        <th class="ctr">STT</th><th>Mã CK</th><th>Giá H.tại</th><th>Thay đổi</th><th>Khối lượng</th><th>Giá Xanh / ĐCB</th><th class="ctr">ROBOT</th><th>T+</th><th>Ngày Xanh</th><th>Target 1</th><th>Target 2</th><th>Lãi/Lỗ</th>
       </tr></thead><tbody id="body"></tbody></table></div>
 <div class="tw" id="ngw" style="max-height:78vh" hidden><table><thead><tr><th>Mã CK</th><th>Giá</th><th>+/-</th><th class="ctr">Trạng thái</th><th>Lãi/Lỗ</th><th>T+</th><th>SL / Vào lại</th><th>Sức mạnh vs ngành (20 phiên)</th></tr></thead><tbody id="ngb"></tbody></table></div>
       <div id="dtw" hidden>
@@ -209,22 +213,29 @@ $('vw').innerHTML='';[['tin','Bảng tín hiệu'],['nganh','Theo ngành'],['dt'
  const g0=goc(tab);
  const an=view==='dt'||view==='tk';$('tabs').hidden=an;$('kh').hidden=!H1[g0]||an;$('flt').hidden=view==='tk';$('kh').innerHTML='';
  (H1[g0]?[[g0,'Khung 1 ngày'],[H1[g0],'Khung 1 giờ']]:[]).forEach(([t,nh])=>{const b=document.createElement('button');b.textContent=nh;b.className=t===tab?'on':'';b.onclick=()=>{tab=t;flt="Tất cả";try{localStorage.setItem('sbtab',t)}catch(e){}render()};$('kh').appendChild(b)});
- $('flt').innerHTML='';(view!=='tin'?[]:["Tất cả","MUA","NẮM GIỮ","BÁN"]).forEach(f=>{const b=document.createElement('button');b.textContent=tx(f);b.className=f===flt?'on':'';b.onclick=()=>{flt=f;render()};$('flt').appendChild(b)});
+ const dem=demTH();$('flt').innerHTML='';(view!=='tin'?[]:["Tất cả","MUA","NẮM GIỮ","BÁN"]).forEach(f=>{const b=document.createElement('button');b.textContent=tx(f)+' ('+dem[f]+')';b.className=f===flt?'on':'';b.onclick=()=>{flt=f;render()};$('flt').appendChild(b)});
  const i=document.createElement('input');i.placeholder='Tìm mã…';i.value=q;i.oninput=e=>{q=e.target.value.toUpperCase();rows()};$('flt').appendChild(i);
  $('idx').innerHTML=["VNINDEX","VN30","CHỈ SỐ ĐỀU"].filter(k=>k!=="CHỈ SỐ ĐỀU"||D.idx[k]).map(k=>{const v=D.idx[k];return`<div><small>${k}</small><span>${v&&v[0]!=null?nf(v[0]):'–'}</span> ${v&&v[1]!=null?`<span class="${cls(v[1])}" style="font-size:14px">${arrow(v[1])} ${nf(Math.abs(v[1]))}%</span>`:''}</div>`}).join('');
  rows();side();
 }
-const hang=rb=>/^MUA$/i.test(rb)?0:/^BÁN$/i.test(rb)?1:2;   // thứ tự nhóm trong bảng tín hiệu
+const hang=rb=>/^MUA$/i.test(rb)?0:/^BÁN$/i.test(rb)?1:2;
+// Đếm số mã theo trạng thái trong tab đang xem
+function demTH(){const cur=D.tabs[tab]||{},d={"Tất cả":0,"MUA":0,"NẮM GIỮ":0,"BÁN":0,cx:0,ch:0};
+ Object.values(cur).forEach(r=>{if(r.p==null)return;const rb=r.rb||'';
+  if(/^CHỜ MUA$/i.test(rb))d.cx++;else if(!/CHỜ/i.test(rb)){d["Tất cả"]++;if(/^MUA$/i.test(rb))d.MUA++;else if(/^BÁN$/i.test(rb))d["BÁN"]++;else if(/GIỮ/i.test(rb))d["NẮM GIỮ"]++}
+  if(r.ws!=null)d.ch++});return d}   // thứ tự nhóm trong bảng tín hiệu
 function rows(){
 $('tbw').hidden=view!=='tin';$('ngw').hidden=view!=='nganh';$('dtw').hidden=view!=='dt';$('tkw').hidden=view!=='tk';if(view==='nganh')rowsN();if(view==='dt')rowsD();if(view==='tk')rowsTK();
  const cur=D.tabs[tab]||{};
  const have=Object.keys(cur).filter(m=>cur[m].p!=null&&!/CHỜ/i.test(cur[m].rb)).sort();
  const list=have.filter(m=>(flt==="Tất cả"||(flt==="NẮM GIỮ"?/GIỮ/i.test(cur[m].rb):cur[m].rb.toUpperCase().startsWith(flt)))&&(!q||m.includes(q))).sort((a,b)=>hang(cur[a].rb)-hang(cur[b].rb));   // MUA -> BÁN -> đang nắm giữ (trong nhóm: theo chữ cái)
- $('body').innerHTML=list.map(m=>{const r=cur[m],dec=r.p>1000?1:2,eq=r.eq;
+ {const d=demTH(),o=(n,t,c)=>`<span class="tom1 ${c}"><b>${n}</b>${t}</span>`;
+  $('tom').hidden=view!=='tin';$('tom').innerHTML=o(d.MUA,'mã XANH','up')+o(d['BÁN'],'mã HỒNG','dn')+o(d['NẮM GIỮ'],'mã đang giữ','')+o(d.cx,'mã chờ XANH','w')+(TABKEY[tab]==='bat_day'?o(d.ch,'mã chờ HỒNG','w'):'')+`<small>${D.asof?'Cập nhật '+D.asof:''}</small>`}
+ $('body').innerHTML=list.map((m,ix)=>{const r=cur[m],dec=r.p>1000?1:2,eq=r.eq;
   const tg=[1.085,1.135];const t1=r.t1!=null?r.t1:eq!=null?eq*tg[0]:null,t2=r.t2!=null?r.t2:eq!=null?eq*tg[1]:null,pl=eq?(r.p/eq-1)*100:null;
   const h1=/2\/3|1\/3|1\/2/.test(r.rb),h2=/1\/3/.test(r.rb);
   const f=(x,hit)=>x==null?'–':hit?`<span class="bd">${nf(x,dec)}</span>`:nf(x,dec);
-  const isBuy=/^MUA$/i.test(r.rb),isSell=/^BÁN$/i.test(r.rb);return`<tr class="${isBuy?'buyrow':isSell?'sellrow':''}"><td class="tkc" data-m="${m}" tabindex="0">${m}</td><td class="${cls(r.c||0)}">${nf(r.p,dec)}</td><td class="${cls(r.c||0)}">${r.c==null?'–':arrow(r.c)+nf(Math.abs(r.c))+'%'}</td><td>${r.v==null?'–':nf(r.v,1)}</td><td>${eq==null?'–':isBuy?`<span class="bd">${nf(eq,dec)}</span>`:nf(eq,dec)}</td><td class="ctr"><span class="${rbClass(r.rb)}">${tx(r.rb||'–')}</span>${r.sl!=null?`<br><small>Cắt lỗ &lt; ${nf(r.sl,dec)}</small>`:''}${r.ly?`<br><small>${tx(r.ly)}</small>`:''}</td><td>${r.t==null?'–':'T+'+r.t}</td><td>${r.d||'–'}</td><td>${f(t1,h1)}</td><td>${f(t2,h2)}</td><td class="${pl==null?'':cls(pl)}">${pl==null?'–':nf(pl)+'%'}</td></tr>`}).join('')||`<tr><td colspan="11" class="empty">${have.length?'Không có mã phù hợp bộ lọc.':'Chưa có dữ liệu cho tab này.'}</td></tr>`;
+  const isBuy=/^MUA$/i.test(r.rb),isSell=/^BÁN$/i.test(r.rb);return`<tr class="${isBuy?'buyrow':isSell?'sellrow':''}"><td class="ctr stt">${ix+1}</td><td class="tkc" data-m="${m}" tabindex="0">${m}</td><td class="${cls(r.c||0)}">${nf(r.p,dec)}</td><td class="${cls(r.c||0)}">${r.c==null?'–':arrow(r.c)+nf(Math.abs(r.c))+'%'}</td><td>${r.v==null?'–':nf(r.v,1)}</td><td>${eq==null?'–':isBuy?`<span class="bd">${nf(eq,dec)}</span>`:nf(eq,dec)}</td><td class="ctr"><span class="${rbClass(r.rb)}">${tx(r.rb||'–')}</span>${r.sl!=null?`<br><small>Cắt lỗ &lt; ${nf(r.sl,dec)}</small>`:''}${r.ly?`<br><small>${tx(r.ly)}</small>`:''}</td><td>${r.t==null?'–':'T+'+r.t}</td><td>${r.d||'–'}</td><td>${f(t1,h1)}</td><td>${f(t2,h2)}</td><td class="${pl==null?'':cls(pl)}">${pl==null?'–':nf(pl)+'%'}</td></tr>`}).join('')||`<tr><td colspan="12" class="empty">${have.length?'Không có mã phù hợp bộ lọc.':'Chưa có dữ liệu cho tab này.'}</td></tr>`;
  const tot=D.symbols.length,miss=D.missing||[];
  $('ms').textContent=`Có dữ liệu: ${tot-miss.length}/${tot} mã`+(miss.length?' (bấm để xem mã còn thiếu)':'');
  $('ml').textContent=miss.join(', ');
