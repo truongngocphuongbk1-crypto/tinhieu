@@ -1,5 +1,5 @@
 {
-"tong_ket": "2026-11-18",
+"tong_ket": "2026-11-19",
 "da_gui": [
 "2026-11-09|CTD|vuot_khang_cu|b",
 "2026-11-09|DCL|supertrend|s",
@@ -458,7 +458,9 @@
 "2026-11-19 14:00|BID|bat_day_1h|b",
 "2026-11-19 14:00|CTR|bat_day_1h|b",
 "2026-11-19 14:00|HHV|bat_day_1h|b",
+"2026-11-19 14:00|LAS|bat_day_1h|s",
 "2026-11-19 14:00|PHR|bat_day_1h|b",
+"2026-11-19 14:00|PLP|bat_day_1h|b",
 "2026-11-19|ACB|bat_day|s",
 "2026-11-19|ACB|supertrend|s",
 "2026-11-19|BAF|vuot_khang_cu|s",
