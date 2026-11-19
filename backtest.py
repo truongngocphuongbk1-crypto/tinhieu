@@ -92,6 +92,47 @@ def so_sanh_target(data, gio):
     return kq
 
 
+# Các cách dùng khung 1 giờ đem ra so sánh (xem GIO trong bot.py)
+SO_GIO = [
+    ("A. Như cũ", dict(che_do="A")),
+    ("B. Lọc chặt theo khung ngày", dict(che_do="B")),
+    ("C. Khung ngày vừa XANH ≤ 5 phiên", dict(che_do="C", cua_so=5)),
+    ("C. Khung ngày vừa XANH ≤ 10 phiên", dict(che_do="C", cua_so=10)),
+    ("D. Vào theo giờ, ra theo ngày", dict(che_do="D")),
+    ("B+D", dict(che_do="BD")),
+    ("C+D (≤ 5 phiên)", dict(che_do="CD", cua_so=5)),
+    ("C+D (≤ 10 phiên)", dict(che_do="CD", cua_so=10)),
+]
+
+
+def so_sanh_gio(data, gio):
+    """Chạy từng cách dùng khung 1 giờ. Thêm dòng tham chiếu: khung ngày trong CÙNG khoảng thời gian."""
+    goc = copy.deepcopy(bot.GIO)
+    cs = bot.chi_so_deu(list(data.values()))
+    vni = bot.thi_truong_ok(cs)
+    tu = min(g["t"][0][:10] for g in gio.values())
+    ngay = {m: (d, bot.loc_mua_ngay(d, vni)) for m, d in data.items()}
+    ind_ngay = {m: bot.tinh_chien_luoc(d, {"supertrend": ok, "bat_day": ok}) for m, (d, ok) in ngay.items()}
+    kq = {}
+    for cl, nguon in (("supertrend", "stt"), ("bat_day", "bd")):
+        ds = [x for m in data for x in ind_ngay[m][nguon]["lenh"] if x["ngay_mua"] >= tu and m in gio]
+        kq[("Tham chiếu: khung NGÀY cùng thời gian", cl)] = thong_ke(ds)
+    for ten, cau_hinh in SO_GIO:
+        bot.GIO.clear(); bot.GIO.update(goc); bot.GIO.update(cau_hinh)
+        lenh = {"supertrend": [], "bat_day": []}
+        for m, dg in gio.items():
+            if m not in ngay:
+                continue
+            d, ok = ngay[m]
+            ig = bot.tinh_chien_luoc_gio(dg, d, ok, ind_ngay[m])
+            lenh["supertrend"] += ig["stt"]["lenh"]; lenh["bat_day"] += ig["bd"]["lenh"]
+        for cl in lenh:
+            kq[(ten, cl)] = thong_ke(lenh[cl])
+        print("Xong khung giờ:", ten)
+    bot.GIO.clear(); bot.GIO.update(goc)
+    return kq, tu
+
+
 def dat_cau_hinh(thay_doi):
     cfg = dict(TAT, **thay_doi)
     bot.LOC.update(gtgd_min=cfg["gtgd_min"], ema_chi_so=cfg["ema_chi_so"],
@@ -163,6 +204,7 @@ def main():
     gio = {m: g for m, g in gio.items() if isinstance(g, dict) and len(g.get("c", [])) > 60}
     print(f"Có nến 1 giờ của {len(gio)} mã")
     kq_t = so_sanh_target(data, gio)
+    kq_g, tu_g = so_sanh_gio(data, gio)
 
     # ----- Ghi kết quả -----
     out = [f"# Kết quả backtest",
@@ -213,6 +255,22 @@ def main():
                 pf = "∞" if t["pf"] == float("inf") else so(t["pf"])
                 out.append(f"| {ten} | {t['so']} | {so(t['thang'], 1)}% | **{so(t['tb'])}%** | {so(t['tb'] * t['so'], 0)}% | {pf} | {so(t['phien'], 1)} |")
             out.append("")
+    out += ["# So sánh cách dùng khung 1 giờ", "",
+            f"Nến 1 giờ từ {bot.fmt_ngay(tu_g)} ({len(gio)} mã). Dòng *Tham chiếu* = chiến lược khung NGÀY trong cùng thời gian, "
+            "để biết thị trường giai đoạn này khó hay dễ. Xếp theo *Lãi TB/lệnh*.", ""]
+    for key, ten_cl in bot.CHIEN_LUOC.items():
+        out += [f"## {ten_cl} (khung 1 giờ)", "",
+                "| Cách dùng | Số lệnh | Tỷ lệ thắng | Lãi TB/lệnh | Tổng | Hệ số lợi nhuận | Lỗ nặng nhất | Số phiên giữ TB |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|"]
+        ten_all = ["Tham chiếu: khung NGÀY cùng thời gian"] + [x[0] for x in SO_GIO]
+        for ten in sorted(ten_all, key=lambda x: -((kq_g[(x, key)] or {}).get("tb", -999))):
+            t = kq_g[(ten, key)]
+            if not t:
+                out.append(f"| {ten} | 0 | – | – | – | – | – | – |"); continue
+            pf = "∞" if t["pf"] == float("inf") else so(t["pf"])
+            dam = "*" if ten.startswith("Tham") else ""
+            out.append(f"| {dam}{ten}{dam} | {t['so']} | {so(t['thang'], 1)}% | **{so(t['tb'])}%** | {so(t['tb'] * t['so'], 0)}% | {pf} | {so(t['max_lo'])}% | {so(t['phien'], 1)} |")
+        out.append("")
     if "--test" not in sys.argv:
         open("KET_QUA_BACKTEST.md", "w", encoding="utf-8").write("\n".join(out) + "\n")
     print("\n".join(out))
