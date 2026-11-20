@@ -491,10 +491,25 @@
 "2026-11-19|VMD|ema|s",
 "2026-11-19|VPI|bat_day|s",
 "2026-11-19|VRE|ema|s",
+"2026-11-20 09:00|BAF|supertrend_1h|s",
+"2026-11-20 09:00|BSI|bat_day_1h|s",
+"2026-11-20 09:00|BVH|bat_day_1h|s",
 "2026-11-20 09:00|CEO|supertrend_1h|s",
+"2026-11-20 09:00|MSN|bat_day_1h|s",
 "2026-11-20 09:00|NTP|bat_day_1h|s",
+"2026-11-20 09:00|POW|bat_day_1h|s",
+"2026-11-20 09:00|VNM|bat_day_1h|s",
+"2026-11-20|ANV|supertrend|s",
+"2026-11-20|CTG|supertrend|s",
+"2026-11-20|LPB|bat_day|s",
+"2026-11-20|LPS|bat_day|s",
+"2026-11-20|PAN|bat_day|s",
 "2026-11-20|PVB|bat_day|s",
-"2026-11-20|VFS|bat_day|s"
+"2026-11-20|SIP|supertrend|s",
+"2026-11-20|VCK|supertrend|s",
+"2026-11-20|VFS|bat_day|s",
+"2026-11-20|VIB|supertrend|s",
+"2026-11-20|VJC|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
