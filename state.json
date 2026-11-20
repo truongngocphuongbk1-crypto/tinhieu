@@ -490,7 +490,10 @@
 "2026-11-19|VJC|vuot_khang_cu|s",
 "2026-11-19|VMD|ema|s",
 "2026-11-19|VPI|bat_day|s",
-"2026-11-19|VRE|ema|s"
+"2026-11-19|VRE|ema|s",
+"2026-11-20 09:00|CEO|supertrend_1h|s",
+"2026-11-20 09:00|NTP|bat_day_1h|s",
+"2026-11-20|VFS|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
