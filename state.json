@@ -441,6 +441,13 @@
 "2026-11-20|VFS|bat_day|s",
 "2026-11-20|VIB|supertrend|s",
 "2026-11-20|VJC|bat_day|s",
+"2026-11-23 09:00|ABB|supertrend_1h|b",
+"2026-11-23 09:00|HAG|supertrend_1h|b",
+"2026-11-23|CTG|supertrend|s",
+"2026-11-23|GIL|supertrend|s",
+"2026-11-23|GVR|bat_day|s",
+"2026-11-23|HDB|supertrend|s",
+"2026-11-23|LPB|bat_day|s",
 "2026-11-23|PVB|bat_day|s",
 "2026-11-23|VFS|bat_day|s"
 ],
