@@ -446,6 +446,7 @@
 "2026-11-23 09:00|FRT|supertrend_1h|s",
 "2026-11-23 09:00|HAG|supertrend_1h|b",
 "2026-11-23 09:00|LCG|bat_day_1h|s",
+"2026-11-23 09:00|OIL|bat_day_1h|s",
 "2026-11-23 09:00|PC1|supertrend_1h|s",
 "2026-11-23 09:00|PLC|bat_day_1h|s",
 "2026-11-23 09:00|PPC|supertrend_1h|b",
@@ -465,7 +466,8 @@
 "2026-11-23|MSB|bat_day|s",
 "2026-11-23|PVB|bat_day|s",
 "2026-11-23|SZC|supertrend|s",
-"2026-11-23|VFS|bat_day|s"
+"2026-11-23|VFS|bat_day|s",
+"2026-11-23|VPI|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
