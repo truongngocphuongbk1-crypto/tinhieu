@@ -486,7 +486,9 @@
 "2026-11-25 09:00|CMG|supertrend_1h|b",
 "2026-11-25 09:00|CSV|bat_day_1h|b",
 "2026-11-25 09:00|DCM|supertrend_1h|b",
+"2026-11-25 09:00|DGC|supertrend_1h|b",
 "2026-11-25 09:00|EVF|bat_day_1h|b",
+"2026-11-25 09:00|FRT|supertrend_1h|b",
 "2026-11-25 09:00|KBC|supertrend_1h|b",
 "2026-11-25 09:00|KLB|supertrend_1h|b",
 "2026-11-25 09:00|KSV|bat_day_1h|b",
@@ -496,10 +498,12 @@
 "2026-11-25 09:00|VPI|supertrend_1h|s",
 "2026-11-25|AAA|bat_day|b",
 "2026-11-25|CMG|bat_day|b",
+"2026-11-25|DGC|bat_day|b",
 "2026-11-25|DRI|bat_day|b",
 "2026-11-25|GEX|bat_day|b",
 "2026-11-25|MBB|bat_day|b",
-"2026-11-25|PHR|bat_day|b"
+"2026-11-25|PHR|bat_day|b",
+"2026-11-25|TCH|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
