@@ -548,7 +548,9 @@
 "2026-11-25|SZC|supertrend|s",
 "2026-11-25|TCH|bat_day|s",
 "2026-11-25|VCI|supertrend|s",
-"2026-11-25|VFS|bat_day|s"
+"2026-11-25|VFS|bat_day|s",
+"2026-11-26|BVS|supertrend|s",
+"2026-11-26|CEO|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
