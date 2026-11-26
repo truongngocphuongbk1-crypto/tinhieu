@@ -620,6 +620,10 @@
 "2026-11-26 13:00|PHP|bat_day_1h|b",
 "2026-11-26 13:00|TCB|bat_day_1h|s",
 "2026-11-26 13:00|TCB|supertrend_1h|s",
+"2026-11-26 13:00|VCI|bat_day_1h|b",
+"2026-11-26 13:00|VIC|supertrend_1h|s",
+"2026-11-26 13:00|VPL|bat_day_1h|s",
+"2026-11-26 13:00|VPL|supertrend_1h|s",
 "2026-11-26|AGR|supertrend|s",
 "2026-11-26|BSI|bat_day|s",
 "2026-11-26|BSI|supertrend|s",
@@ -649,7 +653,8 @@
 "2026-11-26|TCM|supertrend|s",
 "2026-11-26|TPB|supertrend|s",
 "2026-11-26|VDS|supertrend|s",
-"2026-11-26|VFS|bat_day|s"
+"2026-11-26|VFS|bat_day|s",
+"2026-11-26|VPL|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
