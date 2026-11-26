@@ -550,6 +550,7 @@
 "2026-11-25|VCI|supertrend|s",
 "2026-11-25|VFS|bat_day|s",
 "2026-11-26 09:00|DXP|bat_day_1h|s",
+"2026-11-26 09:00|PHP|supertrend_1h|s",
 "2026-11-26|BVS|supertrend|s",
 "2026-11-26|CEO|bat_day|s",
 "2026-11-26|VFS|bat_day|s"
