@@ -628,6 +628,8 @@
 "2026-11-27 09:00|CII|bat_day_1h|s",
 "2026-11-27 09:00|IDC|supertrend_1h|s",
 "2026-11-27 09:00|MSH|bat_day_1h|b",
+"2026-11-27 09:00|PET|bat_day_1h|b",
+"2026-11-27 09:00|PET|supertrend_1h|b",
 "2026-11-27|DGC|bat_day|s",
 "2026-11-27|VFS|bat_day|s"
 ],
