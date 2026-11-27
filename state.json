@@ -638,8 +638,11 @@
 "2026-11-27 10:00|PHP|bat_day_1h|b",
 "2026-11-27 10:00|TV2|bat_day_1h|b",
 "2026-11-27 10:00|VIC|bat_day_1h|b",
+"2026-11-27|CII|bat_day|s",
 "2026-11-27|CII|supertrend|s",
 "2026-11-27|DGC|bat_day|s",
+"2026-11-27|KDH|supertrend|s",
+"2026-11-27|NLG|supertrend|s",
 "2026-11-27|PVP|bat_day|b",
 "2026-11-27|VFS|bat_day|s"
 ],
