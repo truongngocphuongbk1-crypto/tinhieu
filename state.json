@@ -624,7 +624,9 @@
 "2026-11-26|VFS|bat_day|s",
 "2026-11-26|VJC|bat_day|s",
 "2026-11-26|VPL|bat_day|s",
-"2026-11-26|VRE|bat_day|s"
+"2026-11-26|VRE|bat_day|s",
+"2026-11-27 09:00|IDC|supertrend_1h|s",
+"2026-11-27|VFS|bat_day|s"
 ],
 "tai_khoan": {
 "supertrend": {
